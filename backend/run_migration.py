@@ -6,7 +6,12 @@ from app import create_app
 print("--- Starting migration script ---")
 
 # Create a Flask app instance to establish context
-app = create_app()
+app_obj = create_app()
+# Gestion du cas où create_app retourne (app, socketio)
+if isinstance(app_obj, tuple):
+    app = app_obj[0]
+else:
+    app = app_obj
 
 # The app context is needed for SQLAlchemy to know about the models
 with app.app_context():

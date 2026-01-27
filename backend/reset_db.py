@@ -32,18 +32,21 @@ def reset_db():
         )
         db.session.add(agent)
 
-        # On ajoute aussi le client pour ton test de livraison
+        print("📍 Création du client IAI TOGO...")
+        # On utilise les coordonnées exactes que tu as fournies
         client = Client(
-            name="Maquis Test",
+            name="IAI TOGO (Salle Jury)",
             phone="99009900",
-            responsible_name="M. Test",
-            gps_lat=6.13,
-            gps_lng=1.22
+            responsible_name="Président du Jury",
+            gps_lat=6.125414,  # TA LATITUDE
+            gps_lng=1.210354   # TA LONGITUDE
         )
         db.session.add(client)
 
         db.session.commit()
-        print("✅ Base de données réinitialisée avec AGENT '0000' VALIDE !")
+        print("✅ Base de données réinitialisée avec succès !")
+        print("✅ Agent: 0000 / 0000")
+        print("✅ Client: IAI TOGO (Prêt pour GPS)")
 
 if __name__ == "__main__":
     reset_db()

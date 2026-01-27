@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
@@ -11,11 +13,44 @@ class DataService {
   // Helper pour les headers avec Token
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('auth_token'); // Utiliser la clé directement
+    print("🔍 DEBUG - Token récupéré (direct): ${token != null ? 'OUI' : 'NON'}");
+    print("🔍 DEBUG - Clé recherchée: auth_token");
+    if (token != null) {
+      print("🔍 DEBUG - Token (premiers 20 chars): ${token.substring(0, token.length > 20 ? 20 : token.length)}");
+    } else {
+      // Debug : lister toutes les clés disponibles
+      final keys = prefs.getKeys();
+      print("🔍 DEBUG - Clés disponibles dans SharedPreferences: $keys");
+      for (String key in keys) {
+        final value = prefs.getString(key);
+        if (value != null && value.length > 20) {
+          print("🔍 DEBUG - $key: ${value.substring(0, 20)}...");
+        } else {
+          print("🔍 DEBUG - $key: $value");
+        }
+      }
+    }
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
+  }
+  
+  // --- RÉCUPÉRER LES MISSIONS DE L'AGENT ---
+  Future<List<dynamic>> getMyMissions() async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/orders/my-missions');
+    final headers = await _getHeaders();
+
+    try {
+      final response = await http.get(url, headers: headers);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print("Erreur missions: $e");
+    }
+    return [];
   }
 
   // 1. Récupérer la liste des Clients
@@ -26,8 +61,6 @@ class DataService {
     try {
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult == ConnectivityResult.none) {
-        // Optionnel: On pourrait aussi cacher les clients en local, 
-        // mais pour l'instant on se concentre sur l'envoi de livraisons offline.
         return [];
       }
 
@@ -43,52 +76,61 @@ class DataService {
     }
   }
 
-  // 2. Envoyer une Livraison (avec support Offline)
+  // 2. Envoyer une Livraison (avec support Offline & Produits Dynamiques)
   Future<bool> sendDelivery({
     required int clientId,
-    required int qtyVitale,
-    required int qtyVoltic,
+    List<Map<String, dynamic>> items = const [],
     required double amount,
     required double gpsLat,
     required double gpsLng,
-    String? photoUrl,
+    Uint8List? photoBytes,
+    Uint8List? signatureBytes,
+    String? photoUrl, // Chemin ou Base64 (pour la synchro)
     String? signatureUrl,
     bool isSyncing = false,
   }) async {
+    // 1. Préparation des URLs / Base64
+    String? finalPhoto = photoUrl;
+    if (photoBytes != null) {
+      finalPhoto = 'data:image/jpeg;base64,${base64Encode(photoBytes)}';
+    }
+
+    String? finalSignature = signatureUrl;
+    if (signatureBytes != null) {
+      finalSignature = 'data:image/png;base64,${base64Encode(signatureBytes)}';
+    }
+
     final connectivityResult = await Connectivity().checkConnectivity();
 
     if (connectivityResult == ConnectivityResult.none) {
-      if (isSyncing) return false; // Ne pas re-sauver si on est déjà en train de synchroniser
+      if (isSyncing) return false; 
       
-      // MODE OFFLINE : Sauvegarde locale
-      print("Pas d'internet, sauvegarde locale...");
+      print("Pas d'internet, sauvegarde locale (Base64)...");
       await _dbHelper.insertDelivery({
         'client_id': clientId,
-        'quantity_vitale': qtyVitale,
-        'quantity_voltic': qtyVoltic,
+        'items_json': jsonEncode(items), 
         'amount': amount,
         'gps_lat': gpsLat,
         'gps_lng': gpsLng,
-        'photo_url': photoUrl,
-        'signature_url': signatureUrl,
+        'photo_url': finalPhoto, // On stocke le Base64
+        'signature_url': finalSignature,
         'created_at': DateTime.now().toIso8601String(),
         'is_synced': 0
       });
-      return true; // On retourne true pour fermer l'écran
+      return true; 
     }
 
-    // MODE ONLINE : Tentative d'envoi immédiat
     final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deliveriesEndpoint}/');
     final headers = await _getHeaders();
+    
     final body = jsonEncode({
       "client_id": clientId,
-      "quantity_vitale": qtyVitale,
-      "quantity_voltic": qtyVoltic,
+      "items": items,
       "total_amount": amount,
       "gps_lat": gpsLat,
       "gps_lng": gpsLng,
-      "photo_url": photoUrl,
-      "signature_url": signatureUrl
+      "photo_url": finalPhoto,
+      "signature_url": finalSignature
     });
 
     try {
@@ -96,22 +138,21 @@ class DataService {
       if (response.statusCode == 201) {
         return true;
       } else {
+        print("Erreur API (${response.statusCode}): ${response.body}");
         return false;
       }
     } catch (e) {
       if (isSyncing) return false;
       
-      // Erreur réseau imprévue -> Sauvegarde locale
-      print("Erreur réseau imprévue, sauvegarde locale: $e");
+      print("Erreur réseau, sauvegarde locale (Base64): $e");
       await _dbHelper.insertDelivery({
         'client_id': clientId,
-        'quantity_vitale': qtyVitale,
-        'quantity_voltic': qtyVoltic,
+        'items_json': jsonEncode(items),
         'amount': amount,
         'gps_lat': gpsLat,
         'gps_lng': gpsLng,
-        'photo_url': photoUrl,
-        'signature_url': signatureUrl,
+        'photo_url': finalPhoto,
+        'signature_url': finalSignature,
         'created_at': DateTime.now().toIso8601String(),
         'is_synced': 0
       });
@@ -130,26 +171,100 @@ class DataService {
     print("Début Synchronisation (${unsynced.length} livraisons)...");
 
     for (var delivery in unsynced) {
-      bool success = await sendDelivery(
-        clientId: delivery['client_id'],
-        qtyVitale: delivery['quantity_vitale'],
-        qtyVoltic: delivery['quantity_voltic'],
-        amount: delivery['amount'],
-        gpsLat: delivery['gps_lat'],
-        gpsLng: delivery['gps_lng'],
-        photoUrl: delivery['photo_url'],
-        signatureUrl: delivery['signature_url'],
-        isSyncing: true, // IMPORTANT: Dit à la méthode de ne pas re-sauver en local
-      );
+      try {
+        print("Tentative sync livraison #${delivery['id']}");
+        
+        // Conversion Legacy DB -> Items
+        List<Map<String, dynamic>> items = [];
+        if (delivery['items_json'] != null) {
+             items = List<Map<String, dynamic>>.from(jsonDecode(delivery['items_json']));
+        } else {
+             // Fallback pour vieilles données non migrées
+             if ((delivery['quantity_vitale'] ?? 0) > 0) items.add({'product_id': 1, 'quantity': delivery['quantity_vitale']});
+             if ((delivery['quantity_voltic'] ?? 0) > 0) items.add({'product_id': 2, 'quantity': delivery['quantity_voltic']});
+        }
 
-      if (success) {
-        await _dbHelper.markAsSynced(delivery['id']);
+        bool success = await sendDelivery(
+          clientId: int.tryParse(delivery['client_id'].toString()) ?? 0,
+          items: items,
+          amount: double.tryParse(delivery['amount'].toString()) ?? 0.0,
+          gpsLat: double.tryParse(delivery['gps_lat'].toString()) ?? 0.0,
+          gpsLng: double.tryParse(delivery['gps_lng'].toString()) ?? 0.0,
+          photoUrl: delivery['photo_url']?.toString(),
+          signatureUrl: delivery['signature_url']?.toString(),
+          isSyncing: true, 
+        );
+
+        if (success) {
+          await _dbHelper.markAsSynced(int.parse(delivery['id'].toString()));
+          print("✅ Livraison #${delivery['id']} synchronisée.");
+        } else {
+          print("⚠️ Échec sync livraison #${delivery['id']}");
+        }
+      } catch (e) {
+        print("❌ Erreur critique sync livraison #${delivery['id']}: $e");
+        // On continue la boucle pour les autres livraisons
       }
     }
     
-    // Nettoyage après sync réussi
     await _dbHelper.deleteSyncedDeliveries();
     print("Synchronisation terminée.");
+  }
+
+  // Récupérer les livraisons non synchronisées pour l'indicateur
+  Future<List<Map<String, dynamic>>> getUnsyncedDeliveries() async {
+    try {
+      return await _dbHelper.getUnsyncedDeliveries();
+    } catch (e) {
+      print("Erreur getUnsyncedDeliveries: $e");
+      return [];
+    }
+  }
+
+  // CLIENT API METHODS
+  Future<List<dynamic>> getClientOrders() async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/client/orders');
+      final headers = await _getHeaders();
+      final response = await http.get(url, headers: headers);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List<dynamic>;
+      }
+      return [];
+    } catch (e) {
+      print("Erreur getClientOrders: $e");
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getClientDeliveries() async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/client/deliveries');
+      final headers = await _getHeaders();
+      final response = await http.get(url, headers: headers);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List<dynamic>;
+      }
+      return [];
+    } catch (e) {
+      print("Erreur getClientDeliveries: $e");
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getClientInvoices() async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/client/invoices');
+      final headers = await _getHeaders();
+      final response = await http.get(url, headers: headers);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List<dynamic>;
+      }
+      return [];
+    } catch (e) {
+      print("Erreur getClientInvoices: $e");
+      return [];
+    }
   }
 
   // 3. Créer un nouveau client
@@ -235,18 +350,31 @@ class DataService {
     return null;
   }
 
+  // 1.1 Récupérer la liste des Produits
+  Future<List<dynamic>> getProducts() async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/products/');
+    final headers = await _getHeaders();
+    try {
+      final response = await http.get(url, headers: headers);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print("Erreur fetch products: $e");
+    }
+    return [];
+  }
+
   // 7. Passer une Commande (Client)
   Future<bool> sendOrder({
-    required int qtyVitale,
-    required int qtyVoltic,
+    List<Map<String, dynamic>> items = const [],
     String? preferredTime,
     String? instructions,
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/orders/');
     final headers = await _getHeaders();
     final body = jsonEncode({
-      "quantity_vitale": qtyVitale,
-      "quantity_voltic": qtyVoltic,
+      "items": items,
       "preferred_time": preferredTime,
       "instructions": instructions
     });
@@ -274,5 +402,29 @@ class DataService {
       print("Erreur Fetch Orders: $e");
     }
     return [];
+  }
+
+  // 9. Mise à jour position temps réel (Suivi Admin)
+  Future<void> updateLocation(double lat, double lng) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/agents/location');
+    final headers = await _getHeaders();
+
+    try {
+      await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode({'lat': lat, 'lng': lng}),
+      );
+    } catch (e) {
+      print("Erreur envoi position: $e");
+    }
+  }
+
+  // 10. Envoyer une évaluation
+  Future<bool> postEvaluation(Map<String, dynamic> data) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/evaluations/');
+    final headers = await _getHeaders();
+    final response = await http.post(url, headers: headers, body: jsonEncode(data));
+    return response.statusCode == 201;
   }
 }

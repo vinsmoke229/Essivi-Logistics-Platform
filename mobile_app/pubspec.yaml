@@ -32,6 +32,18 @@ dependencies:
     sdk: flutter
   # Pour faire des requêtes HTTP vers mon API Python
   http: ^1.2.0
+  dio: ^5.4.0 # Added for advanced HTTP requests
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  
+  # Routing
+  go_router: ^13.0.0
+
+  # Local Storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
   # Pour sauvegarder le token (Session persistante)
   shared_preferences: ^2.2.2
   
@@ -41,12 +53,18 @@ dependencies:
   cupertino_icons: ^1.0.8
   geolocator: ^10.1.0
   sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0
   path: ^1.8.3
   connectivity_plus: ^5.0.2
   image_picker: ^1.0.7
   signature: ^5.4.0
 
   intl: ^0.19.0
+  fl_chart: ^0.68.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  flutter_background_service: ^5.0.5
+  flutter_map_cancellable_tile_provider: ^2.0.0
 
 
 dev_dependencies:

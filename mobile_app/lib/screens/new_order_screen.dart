@@ -1,46 +1,92 @@
 import 'package:flutter/material.dart';
-import '../services/data_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../presentation/providers/data_service_provider.dart';
+import '../presentation/providers/client_provider.dart';
 
-class NewOrderScreen extends StatefulWidget {
+class NewOrderScreen extends ConsumerStatefulWidget {
   const NewOrderScreen({super.key});
 
   @override
-  State<NewOrderScreen> createState() => _NewOrderScreenState();
+  ConsumerState<NewOrderScreen> createState() => _NewOrderScreenState();
 }
 
-class _NewOrderScreenState extends State<NewOrderScreen> {
+class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _qtyVitaleController = TextEditingController(text: '0');
-  final _qtyVolticController = TextEditingController(text: '0');
   final _timeController = TextEditingController();
   final _instructionsController = TextEditingController();
   
-  bool _isLoading = false;
-  final DataService _dataService = DataService();
+  List<dynamic> _products = [];
+  final Map<int, int> _quantities = {};
+  bool _isLoadingProducts = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final products = await ref.read(dataServiceProvider).getProducts();
+      if (mounted) {
+        setState(() {
+          _products = products;
+          for (var p in products) {
+            _quantities[p['id']] = 0;
+          }
+          _isLoadingProducts = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingProducts = false;
+        });
+      }
+    }
+  }
 
   void _submitOrder() async {
+    final items = _quantities.entries
+        .where((e) => e.value > 0)
+        .map((e) => {'product_id': e.key, 'quantity': e.value})
+        .toList();
+
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Veuillez commander au moins un article")),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
+    
+    FocusScope.of(context).unfocus();
 
-    setState(() => _isLoading = true);
-
-    final success = await _dataService.sendOrder(
-      qtyVitale: int.parse(_qtyVitaleController.text),
-      qtyVoltic: int.parse(_qtyVolticController.text),
+    final success = await ref.read(clientProvider.notifier).createOrder(
+      items: items,
       preferredTime: _timeController.text,
-      instructions: _instructionsController.text
+      instructions: _instructionsController.text,
     );
     
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Commande envoyée au gestionnaire ! 📝"), backgroundColor: Colors.green),
-    );
-    Navigator.pop(context);
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Commande envoyée au gestionnaire ! 📝"), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context);
+      } else {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erreur lors de l'envoi de la commande"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final clientState = ref.watch(clientProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -60,25 +106,70 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               children: [
                 _buildSectionHeader("COMMANDEZ VOS PAQUETS"),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildQuantityField(
-                        controller: _qtyVitaleController,
-                        label: "VITALE",
-                        color: Colors.blue,
+                
+                if (_isLoadingProducts)
+                  const Center(child: CircularProgressIndicator())
+                else if (_products.isEmpty)
+                   const Text("Aucun produit disponible")
+                else
+                  ..._products.map((prod) {
+                    final int pid = prod['id'];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.blue.withOpacity(0.05)),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildQuantityField(
-                        controller: _qtyVolticController,
-                        label: "VOLTIC",
-                        color: Colors.orange,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  prod['name'].toString().toUpperCase(),
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF1E293B)),
+                                ),
+                                Text("${prod['price']} FCFA / unité", style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, color: Colors.blue, size: 20),
+                                onPressed: () {
+                                  if ((_quantities[pid] ?? 0) > 0) {
+                                    setState(() {
+                                      _quantities[pid] = _quantities[pid]! - 1;
+                                    });
+                                  }
+                                },
+                              ),
+                              SizedBox(
+                                width: 30,
+                                child: Text(
+                                  "${_quantities[pid] ?? 0}",
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.blue),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline, color: Colors.blue, size: 20),
+                                onPressed: () {
+                                  setState(() {
+                                    _quantities[pid] = (_quantities[pid] ?? 0) + 1;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
+                    );
+                  }).toList(),
                 
                 const SizedBox(height: 32),
                 _buildSectionHeader("LOGISTIQUE DE LIVRAISON"),
@@ -111,14 +202,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: _isLoading ? Colors.transparent : Colors.blue.withOpacity(0.3),
+                          color: clientState.isLoading ? Colors.transparent : Colors.blue.withOpacity(0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         )
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitOrder,
+                      onPressed: clientState.isLoading || _isLoadingProducts ? null : _submitOrder,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 22),
                         backgroundColor: const Color(0xFF3B82F6),
@@ -127,7 +218,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         elevation: 0,
                       ),
-                      child: _isLoading 
+                      child: clientState.isLoading 
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text("VALIDER LA COMMANDE", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1)),
                     ),

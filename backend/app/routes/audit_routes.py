@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify
 from app import db
 from app.models.sql_models import AuditLog
 from flask_jwt_extended import jwt_required, get_jwt
+from app.utils.helpers import roles_required
 
 audit_bp = Blueprint('audit', __name__, url_prefix='/api/audit')
 
@@ -36,3 +37,23 @@ def get_logs():
         })
 
     return jsonify(results), 200
+
+@audit_bp.route('/', methods=['DELETE'])
+@jwt_required()
+@roles_required(['super_admin'])  # UNIQUEMENT Super Admin peut réinitialiser les logs
+def delete_all_logs():
+    """
+    Réinitialise tous les logs d'audit (ATTENTION : Action irréversible)
+    """
+    try:
+        # Supprimer tous les logs
+        num_deleted = AuditLog.query.delete()
+        db.session.commit()
+        
+        return jsonify({
+            "msg": f"{num_deleted} logs supprimés avec succès",
+            "deleted_count": num_deleted
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": f"Erreur: {str(e)}"}), 500
