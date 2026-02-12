@@ -21,25 +21,25 @@ def reset_db():
         db.session.add(admin)
 
         print("🚚 Création de l'Agent DE SECOURS...")
-        # C'est lui qui va marcher à 100%
+        
         agent = Agent(
             matricule="SOS",
             full_name="Agent Secours",
-            phone="0000",  # Identifiant simple
-            password_hash=generate_password_hash("0000"), # Mot de passe simple
+            phone="0000",  
+            password_hash=generate_password_hash("0000"), 
             tricycle_plate="SOS-MOTO",
             is_active=True
         )
         db.session.add(agent)
 
         print("📍 Création du client IAI TOGO...")
-        # On utilise les coordonnées exactes que tu as fournies
+        
         client = Client(
             name="IAI TOGO (Salle Jury)",
             phone="99009900",
             responsible_name="Président du Jury",
-            gps_lat=6.125414,  # TA LATITUDE
-            gps_lng=1.210354   # TA LONGITUDE
+            gps_lat=6.125414,  
+            gps_lng=1.210354   
         )
         db.session.add(client)
 

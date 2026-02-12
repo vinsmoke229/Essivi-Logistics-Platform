@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
-import 'package:flutter/foundation.dart'; // Pour kIsWeb
-import 'dart:typed_data'; // Pour Uint8List
-import 'dart:convert'; // Pour jsonEncode
+import 'package:flutter/foundation.dart';  
+import 'dart:typed_data';  
+import 'dart:convert';  
 
 import 'package:mobile_app/services/data_service.dart';
 import 'package:mobile_app/services/location_service.dart';
@@ -13,7 +13,7 @@ import 'package:mobile_app/services/sync_service.dart';
 import 'package:mobile_app/presentation/providers/data_service_provider.dart';
 
 class DeliveryFormScreen extends ConsumerStatefulWidget {
-  final Map<String, dynamic>? initialMission; // Mission pré-remplie depuis l'admin
+  final Map<String, dynamic>? initialMission;  
   
   const DeliveryFormScreen({super.key, this.initialMission});
 
@@ -38,17 +38,17 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
   final _amountController = TextEditingController();
   
   List<dynamic> _clients = [];
-  List<dynamic> _products = []; // LISTE DYNAMIQUE DES PRODUITS
-  final Map<int, int> _quantities = {}; // ID Produit -> Quantité
+  List<dynamic> _products = [];  
+  final Map<int, int> _quantities = {};  
   
   bool _isLoading = false;
   bool _isLoadingData = true;
   String? _selectedClientId;
   
-  // GESTION WEB-SAFE (Mémoire)
+   
   Uint8List? _locationPhotoBytes;
   Uint8List? _customerSignatureBytes;
-  // Chemin fichier (Uniquement pour Mobile/SQLite)
+   
   String? _mobilePhotoPath; 
   String? _mobileSignaturePath;
   
@@ -64,22 +64,22 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
 
   Future<void> _loadInitialData() async {
     try {
-      // 1. Charger les clients
+       
       final clients = await ref.read(dataServiceProvider).getClients();
       
-      // 2. Charger les produits (Verna, Vitale...)
+       
       final products = await ref.read(dataServiceProvider).getProducts();
       
       if (mounted) {
         setState(() {
           _clients = clients;
           _products = products;
-          // Initialiser les compteurs à 0 pour chaque produit trouvé
+           
           for (var p in _products) {
             _quantities[p['id']] = 0;
           }
           
-          // 🔴 PRÉ-REMPLISSAGE SI MISSION ASSIGNÉE
+           
           if (widget.initialMission != null) {
             _prefillFromMission(widget.initialMission!);
           }
@@ -95,15 +95,15 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
     }
   }
   
-  /// Pré-remplit le formulaire à partir d'une mission assignée
+   
   void _prefillFromMission(Map<String, dynamic> mission) {
-    // 1. Sélectionner automatiquement le client
+     
     final clientId = mission['client_id']?.toString();
     if (clientId != null) {
       _selectedClientId = clientId;
     }
     
-    // 2. Pré-remplir les quantités de produits
+     
     final items = mission['items'] as List? ?? [];
     for (var item in items) {
       final productId = item['product_id'] as int?;
@@ -114,7 +114,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
       }
     }
     
-    // 3. Calculer le montant total
+     
     _calculateAmount();
     
     debugPrint("📦 Mission pré-remplie: Client #$clientId, ${items.length} produits");
@@ -157,11 +157,11 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
         final bytes = await pickedFile.readAsBytes();
         setState(() {
           _locationPhotoBytes = bytes;
-          if (!kIsWeb) _mobilePhotoPath = pickedFile.path; // Sauvegarde le chemin sur Mobile
+          if (!kIsWeb) _mobilePhotoPath = pickedFile.path;  
         });
       }
     } catch (e) {
-      // Ignorer erreur annulée
+       
     }
   }
 
@@ -171,8 +171,8 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
       if (signatureBytes != null) {
         setState(() {
           _customerSignatureBytes = signatureBytes;
-          // Sur mobile, on pourrait sauvegarder dans un fichier temporaire ici si besoin
-          // Pour l'instant on garde en mémoire/blob
+           
+           
         });
       }
     } catch (e) {
@@ -188,7 +188,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
     });
   }
 
-  // --- CALCUL DU PRIX DYNAMIQUE ---
+   
   void _calculateAmount() {
     double total = 0;
     for (var p in _products) {
@@ -202,7 +202,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
   Future<void> _submitDelivery() async {
     if (!_formKey.currentState!.validate()) return;
     
-    // Vérifier qu'au moins un produit est sélectionné
+     
     final items = _quantities.entries
         .where((e) => e.value > 0)
         .map((e) => {'product_id': e.key, 'quantity': e.value})
@@ -215,7 +215,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
       return;
     }
 
-    // Validation Photo (Sauf sur Web en dev pour aller vite)
+     
     if (_locationPhotoBytes == null && !kIsWeb) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Photo du lieu obligatoire")),
@@ -225,13 +225,13 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
 
     setState(() => _isLoading = true);
     
-    // Capture de la signature avant envoi
+     
     await _saveCustomerSignature();
 
     try {
       final double totalAmount = double.tryParse(_amountController.text) ?? 0.0;
       
-      // Préparation des données pour SQLite (on stocke le Base64 directement)
+       
       final deliveryData = {
         'client_id': _selectedClientId,
         'client_name': _selectedClientId != null 
@@ -247,7 +247,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
         'is_synced': 0
       };
 
-      // 1. Sauvegarde Locale (Toujours)
+       
       await _databaseHelper.insertDelivery(deliveryData);
       
       if (!mounted) return;
@@ -255,9 +255,9 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
         const SnackBar(content: Text("✅ Livraison enregistrée !"), backgroundColor: Colors.green),
       );
       
-      // 2. Tentative de Synchro immédiate (Si réseau)
+       
       if (!kIsWeb) {
-         try { ref.read(dataServiceProvider).syncOfflineDeliveries(); } catch (e) { /* Silent */ }
+         try { ref.read(dataServiceProvider).syncOfflineDeliveries(); } catch (e) {   }
       }
       
       Navigator.pop(context);
@@ -290,7 +290,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- SECTION CLIENT ---
+                   
                   _buildSectionTitle("Client"),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -324,7 +324,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
 
                   const SizedBox(height: 24),
 
-                  // --- SECTION PRODUITS DYNAMIQUE ---
+                   
                   _buildSectionTitle("Produits"),
                   const SizedBox(height: 8),
                   if (_products.isEmpty)
@@ -385,7 +385,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
                   }).toList(),
 
                   const SizedBox(height: 16),
-                  // TOTAL
+                   
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -403,11 +403,11 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
 
                   const SizedBox(height: 24),
 
-                  // --- SECTION PREUVES ---
+                   
                   _buildSectionTitle("Preuves de livraison"),
                   const SizedBox(height: 12),
                   
-                  // GPS
+                   
                   Row(
                     children: [
                       const Icon(Icons.location_on, color: Colors.red, size: 20),
@@ -421,7 +421,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // PHOTO
+                   
                   GestureDetector(
                     onTap: _captureLocationPhoto,
                     child: Container(
@@ -444,7 +444,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // SIGNATURE
+                   
                   _buildSectionTitle("Signature du client"),
                   const SizedBox(height: 12),
                   Container(
@@ -475,7 +475,7 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
 
                   const SizedBox(height: 24),
                   
-                  // BOUTON FINAL
+                   
                   SizedBox(
                     width: double.infinity,
                     height: 50,

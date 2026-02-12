@@ -16,7 +16,7 @@ def get_dashboard_stats():
         current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         last_month_start = (current_month_start - timedelta(days=32)).replace(day=1)
         
-        # 1. Revenu mensuel via sum(total_amount)
+        
         current_month_revenue = db.session.query(func.sum(Delivery.total_amount)).filter(
             Delivery.date >= current_month_start,
             Delivery.status == 'completed'
@@ -30,16 +30,14 @@ def get_dashboard_stats():
         
         revenue_change = ((current_month_revenue - last_month_revenue) / last_month_revenue * 100) if last_month_revenue > 0 else 0
         
-        # 2. Volume de produits (Somme des quantités DeliveryItem)
-        current_month_volume = db.session.query(func.sum(DeliveryItem.quantity)).join(Delivery)\
-            .filter(Delivery.date >= current_month_start, Delivery.status == 'completed').scalar() or 0
+        
+        current_month_volume = db.session.query(func.sum(DeliveryItem.quantity)).join(Delivery)            .filter(Delivery.date >= current_month_start, Delivery.status == 'completed').scalar() or 0
             
-        last_month_volume = db.session.query(func.sum(DeliveryItem.quantity)).join(Delivery)\
-            .filter(Delivery.date >= last_month_start, Delivery.date < current_month_start, Delivery.status == 'completed').scalar() or 0
+        last_month_volume = db.session.query(func.sum(DeliveryItem.quantity)).join(Delivery)            .filter(Delivery.date >= last_month_start, Delivery.date < current_month_start, Delivery.status == 'completed').scalar() or 0
             
         volume_change = ((current_month_volume - last_month_volume) / last_month_volume * 100) if last_month_volume > 0 else 0
         
-        # 3. Nombre de livraisons
+        
         current_month_deliveries = Delivery.query.filter(
             Delivery.date >= current_month_start,
             Delivery.status == 'completed'
@@ -53,7 +51,7 @@ def get_dashboard_stats():
         
         deliveries_change = ((current_month_deliveries - last_month_deliveries) / last_month_deliveries * 100) if last_month_deliveries > 0 else 0
         
-        # 4. Nouveaux clients
+        
         current_month_clients = Client.query.filter(Client.created_at >= current_month_start).count()
         last_month_clients = Client.query.filter(
             Client.created_at >= last_month_start,
@@ -92,7 +90,7 @@ def get_monthly_revenue():
     try:
         year = request.args.get('year', datetime.utcnow().year, type=int)
         
-        # Revenus mensuels pour l'année spécifiée
+        
         monthly_data = db.session.query(
             extract('month', Delivery.date).label('month'),
             func.sum(Delivery.total_amount).label('revenue')
@@ -102,14 +100,14 @@ def get_monthly_revenue():
             extract('month', Delivery.date)
         ).order_by('month').all()
         
-        # Mapper les numéros de mois aux noms
+        
         month_names = ["Jan", "Fev", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Dec"]
         result = []
         
-        # Créer un dictionnaire pour les données
+        
         data_dict = {int(month): float(revenue) for month, revenue in monthly_data}
         
-        # Ajouter tous les mois (même ceux avec 0 revenu)
+        
         for i in range(1, 13):
             result.append({
                 "month": month_names[i-1],
@@ -124,7 +122,7 @@ def get_monthly_revenue():
 @jwt_required()
 def get_delivery_status_stats():
     try:
-        # Statistiques des statuts de livraison
+        
         status_data = db.session.query(
             Delivery.status,
             func.count(Delivery.id).label('count')
@@ -158,7 +156,7 @@ def get_top_agents():
     try:
         limit = request.args.get('limit', 5, type=int)
         
-        # Performance des agents
+        
         agent_data = db.session.query(
             Agent.id,
             Agent.full_name,
@@ -189,13 +187,11 @@ def get_top_agents():
 @jwt_required()
 def get_peak_hours():
     try:
-        # Heures de pointe basées sur les heures de livraison
+        
         hour_data = db.session.query(
             extract('hour', Delivery.date).label('hour'),
             func.count(Delivery.id).label('deliveries_count')
-        ).filter(Delivery.status == 'completed')\
-         .group_by(extract('hour', Delivery.date))\
-         .order_by('hour').all()
+        ).filter(Delivery.status == 'completed')         .group_by(extract('hour', Delivery.date))         .order_by('hour').all()
         
         result = [{
             "hour": f"{int(hour)}h-{int(hour)+1}h",
@@ -211,13 +207,13 @@ def get_peak_hours():
 def get_performance_stats():
     """Performance globale dynamique (Standardized)"""
     try:
-        # Statistiques générales de performance
+        
         total_deliveries = Delivery.query.count()
         total_revenue = db.session.query(func.sum(Delivery.total_amount)).filter_by(status='completed').scalar() or 0
         total_agents = Agent.query.count()
         total_clients = Client.query.count()
         
-        # Livraisons par statut
+        
         completed_deliveries = Delivery.query.filter_by(status='completed').count()
         completion_rate = (completed_deliveries / total_deliveries * 100) if total_deliveries > 0 else 0
         

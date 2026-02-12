@@ -22,12 +22,12 @@ def create_evaluation():
     if not rating or not delivery_id:
         return jsonify({"msg": "Note et ID livraison requis"}), 400
 
-    # Vérifier si la livraison appartient au client et est terminée
+    
     delivery = Delivery.query.filter_by(id=delivery_id, client_id=client_id, status='completed').first()
     if not delivery:
         return jsonify({"msg": "Livraison non trouvée ou non éligible à évaluation"}), 404
 
-    # Vérifier si déjà évaluée
+    
     existing = Evaluation.query.filter_by(delivery_id=delivery_id).first()
     if existing:
         return jsonify({"msg": "Cette livraison a déjà été évaluée"}), 400
@@ -42,7 +42,7 @@ def create_evaluation():
         )
         db.session.add(new_eval)
         
-        # Mettre à jour la moyenne de l'agent
+        
         agent = Agent.query.get(delivery.agent_id)
         if agent:
             all_evals = Evaluation.query.join(Delivery).filter(Delivery.agent_id == agent.id).all()

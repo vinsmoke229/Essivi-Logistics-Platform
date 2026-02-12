@@ -7,7 +7,7 @@ from flask import request
 from app import socketio
 from datetime import datetime
 
-# Dictionnaire pour tracker les utilisateurs connectés
+
 connected_users = {}
 
 @socketio.on('connect')
@@ -15,7 +15,7 @@ def handle_connect():
     """Gestion de la connexion d'un client Socket.IO"""
     client_id = request.sid
     
-    # Récupération du token d'authentification (si fourni)
+    
     auth = request.args.get('token') or (request.headers.get('Authorization') or '').replace('Bearer ', '')
     
     connected_users[client_id] = {
@@ -58,7 +58,7 @@ def handle_join_order(data):
         room_name = f'order_{order_id}'
         join_room(room_name)
         
-        # Tracker la room
+        
         client_id = request.sid
         if client_id in connected_users:
             if 'rooms' not in connected_users[client_id]:
@@ -94,7 +94,7 @@ def handle_leave_order(data):
         room_name = f'order_{order_id}'
         leave_room(room_name)
         
-        # Retirer de la liste des rooms
+        
         client_id = request.sid
         if client_id in connected_users and 'rooms' in connected_users[client_id]:
             if room_name in connected_users[client_id]['rooms']:
@@ -159,7 +159,7 @@ def handle_get_connection_info():
     
     emit('connection_info', info)
 
-# Fonction utilitaire pour obtenir les utilisateurs connectés
+
 def get_connected_users_list():
     """Retourne la liste des utilisateurs connectés"""
     return list(connected_users.values())

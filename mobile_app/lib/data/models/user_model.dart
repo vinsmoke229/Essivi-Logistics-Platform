@@ -17,7 +17,7 @@ class UserModel extends UserEntity {
     print("🔍 DEBUG - Token extrait: ${accessToken.isNotEmpty ? 'OUI' : 'NON'}");
     
     return UserModel(
-      id: json['identity'] ?? json['id']?.toString() ?? json['sub']?.toString() ?? '0', // Backend returns 'identity' in token sometimes, adjust as needed
+      id: json['identity'] ?? json['id']?.toString() ?? json['sub']?.toString() ?? '0',  
       name: json['name'] ?? '',
       role: json['role'] ?? '',
       identifier: json['identifier'],

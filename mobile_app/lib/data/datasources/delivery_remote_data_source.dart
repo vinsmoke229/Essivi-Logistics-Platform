@@ -19,7 +19,7 @@ class DeliveryRemoteDataSource {
   }) async {
     try {
       final response = await apiClient.dio.post(
-        '${ApiConstants.deliveriesEndpoint}/', // Ensure trailing slash if backend needs it (flask strict slashes)
+        '${ApiConstants.deliveriesEndpoint}/',  
         data: {
           "client_id": clientId,
           "quantity_vitale": qtyVitale,

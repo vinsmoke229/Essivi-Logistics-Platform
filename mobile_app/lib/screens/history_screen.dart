@@ -15,7 +15,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   bool _isLoading = true;
   bool _showFilters = false;
 
-  // Filtres
+   
   DateTime? _startDate;
   DateTime? _endDate;
   String? _selectedClient;
@@ -23,7 +23,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   double? _maxAmount;
   String _searchQuery = '';
 
-  // Contrôleurs pour les filtres
+   
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _minAmountController = TextEditingController();
   final TextEditingController _maxAmountController = TextEditingController();
@@ -47,7 +47,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       final data = await ref.read(dataServiceProvider).getMyDeliveries();
       if (!mounted) return;
       
-      // Si aucune donnée, ajouter des données de test
+       
       if (data.isEmpty) {
         _deliveries = _getMockDeliveries();
       } else {
@@ -61,7 +61,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      // En cas d'erreur, utiliser des données de test
+       
       setState(() {
         _deliveries = _getMockDeliveries();
         _isLoading = false;
@@ -73,7 +73,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   void _applyFilters() {
     setState(() {
       _filteredDeliveries = _deliveries.where((delivery) {
-        // Filtre par recherche
+         
         if (_searchQuery.isNotEmpty) {
           final clientName = delivery['client_name']?.toString().toLowerCase() ?? '';
           if (!clientName.contains(_searchQuery.toLowerCase())) {
@@ -81,14 +81,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           }
         }
 
-        // Filtre par client
+         
         if (_selectedClient != null && _selectedClient!.isNotEmpty) {
           if (delivery['client_name'] != _selectedClient) {
             return false;
           }
         }
 
-        // Filtre par montant minimum
+         
         if (_minAmount != null) {
           final amount = (delivery['total_amount'] as num?)?.toDouble() ?? 0;
           if (amount < _minAmount!) {
@@ -96,7 +96,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           }
         }
 
-        // Filtre par montant maximum
+         
         if (_maxAmount != null) {
           final amount = (delivery['total_amount'] as num?)?.toDouble() ?? 0;
           if (amount > _maxAmount!) {
@@ -104,11 +104,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           }
         }
 
-        // Filtre par date
+         
         if (_startDate != null || _endDate != null) {
           final deliveryDateStr = delivery['created_at']?.toString() ?? '';
           try {
-            // Format: "2024-01-24 08:30"
+             
             final parts = deliveryDateStr.split(' ');
             if (parts.isNotEmpty) {
               final dateParts = parts[0].split('-');
@@ -132,7 +132,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               }
             }
           } catch (e) {
-            // En cas d'erreur de parsing, on ignore le filtre de date
+             
           }
         }
 
@@ -243,10 +243,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       ),
       body: Column(
         children: [
-          // FILTRES SECTION
+           
           if (_showFilters) _buildFiltersSection(),
           
-          // SEARCH BAR
+           
           Container(
             margin: const EdgeInsets.all(16),
             child: TextField(
@@ -283,7 +283,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             ),
           ),
 
-          // STATISTICS BAR
+           
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -315,7 +315,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             ),
           ),
           
-          // LIST
+           
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A)))
@@ -396,7 +396,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                       padding: const EdgeInsets.all(20.0),
                                       child: Row(
                                         children: [
-                                          // ICON BOX
+                                           
                                           Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
@@ -407,7 +407,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                           ),
                                           const SizedBox(width: 16),
                                           
-                                          // DETAILS
+                                           
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,7 +443,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                             ),
                                           ),
                                           
-                                          // AMOUNT
+                                           
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
@@ -518,7 +518,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Filtre par date
+           
           Row(
             children: [
               Expanded(
@@ -579,7 +579,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           
           const SizedBox(height: 12),
           
-          // Filtre par client
+           
           DropdownButtonFormField<String>(
             decoration: InputDecoration(
               labelText: 'Client',
@@ -603,7 +603,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           
           const SizedBox(height: 12),
           
-          // Filtre par montant
+           
           Row(
             children: [
               Expanded(

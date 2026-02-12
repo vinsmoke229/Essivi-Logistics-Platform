@@ -1,12 +1,12 @@
 import requests
 
-# URL de ton serveur (celui qui tourne dans l'autre fenêtre)
+
 BASE_URL = "http://127.0.0.1:5000/api"
 
 def run_test():
     print("🚀 DÉMARRAGE DU SCÉNARIO DE TEST COMPLET...\n")
 
-    # --- 1. CONNEXION ADMIN ---
+    
     print("1️⃣  Connexion SuperAdmin...")
     login_payload = {"identifier": "admin@essivi.com", "password": "admin123"}
     resp = requests.post(f"{BASE_URL}/auth/login", json=login_payload)
@@ -19,7 +19,7 @@ def run_test():
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
     print("✅ Admin connecté !\n")
 
-    # --- 2. CRÉATION D'UN AGENT ---
+    
     print("2️⃣  Création de l'Agent 'Koffi'...")
     agent_data = {
         "matricule": "AGT-TEST-01",
@@ -28,16 +28,16 @@ def run_test():
         "password": "pass",
         "tricycle_plate": "TG-9999-Z"
     }
-    # On supprime d'abord s'il existe (pour pouvoir relancer le test)
-    # Note: Dans un vrai test on ferait un nettoyage DB, ici on tente juste de créer
+    
+    
     resp = requests.post(f"{BASE_URL}/agents/", json=agent_data, headers=admin_headers)
-    if resp.status_code in [201, 409]: # 201=Créé, 409=Existe déjà
+    if resp.status_code in [201, 409]: 
         print(f"✅ Agent géré (Status: {resp.status_code})")
     else:
         print(f"❌ Erreur création agent: {resp.text}")
         return
 
-    # --- 3. CRÉATION D'UN CLIENT ---
+    
     print("\n3️⃣  Création du Client 'Maquis 2000'...")
     client_data = {
         "name": "Maquis 2000",
@@ -54,13 +54,13 @@ def run_test():
         print(f"✅ Client créé avec ID: {client_id}")
     elif resp.status_code == 409:
         print("⚠️ Le client existe déjà, on continue...")
-        # On va essayer de récupérer le client existant (si tu as codé la recherche, sinon on met ID 1 au hasard)
+        
         client_id = 1 
     else:
         print(f"❌ Erreur création client: {resp.text}")
         return
 
-    # --- 4. CONNEXION EN TANT QU'AGENT ---
+    
     print("\n4️⃣  Connexion de l'Agent...")
     agent_login = {"identifier": "AGT-TEST-01", "password": "pass"}
     resp = requests.post(f"{BASE_URL}/auth/login", json=agent_login)
@@ -73,7 +73,7 @@ def run_test():
     agent_headers = {"Authorization": f"Bearer {agent_token}"}
     print("✅ Agent connecté !\n")
 
-    # --- 5. FAIRE UNE LIVRAISON ---
+    
     print("5️⃣  L'Agent enregistre une livraison...")
     delivery_data = {
         "client_id": client_id,

@@ -13,17 +13,17 @@ def login():
     identifier = data.get('identifier')
     password = data.get('password')
 
-    # --- 🕵️ ZONE ESPION : ON AFFICHE CE QUI ARRIVE ---
+    
     print("\n" + "="*50)
     print(f"📡 TENTATIVE DE CONNEXION REÇUE")
     print(f"👉 Identifiant reçu : '{identifier}'")
     print(f"👉 Mot de passe reçu : '{password}'")
-    # --------------------------------------------------
+    
 
     if not identifier or not password:
         return jsonify({"msg": "Identifiant et mot de passe requis"}), 400
 
-    # 1. Vérification ADMIN
+    
     user = User.query.filter_by(email=identifier).first()
     if user:
         print(f"👤 Compte ADMIN trouvé : {user.username}")
@@ -33,7 +33,7 @@ def login():
                 identity=str(user.id), 
                 additional_claims={'role': user.role, 'type': 'admin'}
             )
-            # LOG DE CONNEXION RÉUSSIE
+            
             log_action(
                 user_id=user.id,
                 action="LOGIN_SUCCESS",
@@ -43,7 +43,7 @@ def login():
             return jsonify(access_token=access_token, role=user.role, type='admin', name=user.username, identifier=user.email), 200
         else:
             print("❌ Mot de passe Admin INCORRECT")
-            # LOG DE TENTATIVE ÉCHOUÉE
+            
             log_action(
                 user_id=user.id,
                 action="LOGIN_FAILED",
@@ -51,8 +51,8 @@ def login():
                 details=f"Tentative de connexion échouée - Email: {identifier}"
             )
 
-    # 2. Vérification AGENT
-    # On cherche par Matricule OU par Téléphone
+    
+    
     agent = Agent.query.filter((Agent.matricule == identifier) | (Agent.phone == identifier)).first()
     
     if agent:
@@ -69,7 +69,7 @@ def login():
                 identity=str(agent.id), 
                 additional_claims={'role': 'agent', 'type': 'agent'}
             )
-            # LOG DE CONNEXION RÉUSSIE AGENT
+            
             log_action(
                 agent_id=agent.id,
                 action="LOGIN_SUCCESS",
@@ -81,7 +81,7 @@ def login():
             return jsonify(access_token=access_token, role='agent', type='agent', name=agent.full_name, identifier=agent.matricule or agent.phone), 200
         else:
             print("❌ Mot de passe Agent INCORRECT")
-            # LOG DE TENTATIVE ÉCHOUÉE AGENT
+            
             log_action(
                 agent_id=agent.id,
                 action="LOGIN_FAILED",
@@ -91,7 +91,7 @@ def login():
     else:
         print("❌ Aucun Agent trouvé avec cet identifiant (ni matricule, ni téléphone)")
 
-    # 3. Vérification CLIENT
+    
     client = Client.query.filter_by(phone=identifier).first()
     if client:
         print(f"🛒 Compte CLIENT trouvé : {client.name}")
@@ -101,7 +101,7 @@ def login():
                 identity=str(client.id), 
                 additional_claims={'role': 'client', 'type': 'client'}
             )
-            # LOG DE CONNEXION RÉUSSIE CLIENT
+            
             log_action(
                 action="LOGIN_SUCCESS",
                 entity_type="auth",
@@ -113,7 +113,7 @@ def login():
 
     print("⛔ ÉCHEC FINAL : Aucune correspondance trouvée.")
     print("="*50 + "\n")
-    # LOG DE TENTATIVE ÉCHOUÉE (identifiant inconnu)
+    
     log_action(
         action="LOGIN_FAILED",
         entity_type="auth",
@@ -129,7 +129,7 @@ def verify_token():
         user_id = get_jwt_identity()
         claims = get_jwt()
         
-        # On essaie de trouver qui c'est (Admin, Agent ou Client)
+        
         user_type = claims.get('type')
         
         if user_type == 'admin':

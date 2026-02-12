@@ -14,8 +14,8 @@ class ClientRemoteDataSource {
       final List data = response.data;
       return data.map((json) => OrderModel.fromJson(json)).toList();
     } catch (e) {
-      // Return empty list on simple error or rethrow
-      // Rethrow to handle in repo
+       
+       
       rethrow;
     }
   }

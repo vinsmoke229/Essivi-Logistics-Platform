@@ -40,7 +40,7 @@ def send_notification():
         claims = get_jwt()
         data = request.get_json()
         
-        # Seuls les admins peuvent envoyer des notifications
+        
         if claims.get('type') != 'admin':
             return jsonify({"msg": "Accès réservé aux administrateurs"}), 403
         
@@ -50,7 +50,7 @@ def send_notification():
         notification_data = data.get('data', {})
         
         if target_user:
-            # Notification à un utilisateur spécifique
+            
             emit_to_user(target_user, event, {
                 'message': message,
                 'data': notification_data,
@@ -58,7 +58,7 @@ def send_notification():
                 'timestamp': datetime.utcnow().isoformat()
             })
         else:
-            # Notification à tous
+            
             target_type = data.get('target_type', 'all')
             if target_type == 'admins':
                 emit_to_admins(event, {
@@ -155,12 +155,12 @@ def broadcast_message():
         claims = get_jwt()
         data = request.get_json()
         
-        # Seuls les admins peuvent diffuser des messages
+        
         if claims.get('type') != 'admin':
             return jsonify({"msg": "Accès réservé aux administrateurs"}), 403
         
         message = data.get('message', '')
-        message_type = data.get('type', 'info')  # info, warning, error, success
+        message_type = data.get('type', 'info')  
         
         emit_to_all('broadcast_message', {
             'message': message,

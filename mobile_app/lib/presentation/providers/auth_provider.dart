@@ -6,19 +6,19 @@ import '../../data/datasources/auth_local_data_source.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import 'core_providers.dart';
 
-// REPOSITORIES
+ 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final apiClient = ref.read(apiClientProvider);
-  // Note: sharedPreferencesProvider is FutureProvider, but we need it synchronously here usually, 
-  // or we can just access it if we await in main.
-  // Workaround: We will use `ref.watch` but since it is async, we ideally pass the instance.
-  // For simplicity, we assume SharedPreferences is initialized in main and we can use a simpler provider
-  // or just use `SharedPreferences.getInstance()` inside DataSource if preferred.
-  // But to stick to Clean Arch, let's use Overridden provider in Main.
+   
+   
+   
+   
+   
+   
   throw UnimplementedError('Provider was not overridden');
 });
 
-// STATE DEFINITION
+ 
 class AuthState {
   final UserEntity? user;
   final bool isLoading;
@@ -35,7 +35,7 @@ class AuthState {
   }
 }
 
-// VIEW MODEL (CONTROLLER)
+ 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
 
@@ -82,7 +82,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-// PROVIDER
+ 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return AuthNotifier(repository);

@@ -8,7 +8,7 @@ class User(db.Model):
     full_name = db.Column(db.String(100))
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default='manager') # super_admin, manager, supervisor
+    role = db.Column(db.String(20), default='manager') 
     is_active = db.Column(db.Boolean, default=True)
     last_login = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -63,7 +63,7 @@ class Delivery(db.Model):
     date = db.Column(db.DateTime, default=datetime.utcnow)
     agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=False)
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
-    # Colonnes quantity supprimées (migration Phase 10)
+    
     total_amount = db.Column(db.Float, nullable=False)
     gps_lat_delivery = db.Column(db.Float)
     gps_lng_delivery = db.Column(db.Float)
@@ -71,7 +71,7 @@ class Delivery(db.Model):
     signature_url = db.Column(db.Text)
     status = db.Column(db.String(20), default='completed')
 
-    # Relation One-to-Many
+    
     items = db.relationship('DeliveryItem', backref='delivery', lazy=True, cascade="all, delete-orphan")
 
 class Order(db.Model):
@@ -79,13 +79,13 @@ class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
     agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)
-    # Colonnes quantity supprimées
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     preferred_delivery_time = db.Column(db.String(100))
     status = db.Column(db.String(20), default='pending') 
     instructions = db.Column(db.Text)
 
-    # Relation One-to-Many
+    
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade="all, delete-orphan")
 
 class Product(db.Model):
@@ -102,7 +102,7 @@ class DeliveryItem(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     
-    # Relation pour accéder aux infos du produit (nom, prix) via l'item
+    
     product = db.relationship('Product', backref='delivery_items_list')
 
 class OrderItem(db.Model):
@@ -136,12 +136,12 @@ class Tour(db.Model):
     total_deliveries = db.Column(db.Integer, default=0)
     total_cash_collected = db.Column(db.Float, default=0.0)
     
-    # Gestion du stock véhicule
-    stock_vitale_loaded = db.Column(db.Integer, default=0)  # Stock Vitale emporté
-    stock_voltic_loaded = db.Column(db.Integer, default=0)  # Stock Voltic emporté
-    stock_vitale_delivered = db.Column(db.Integer, default=0)  # Livré pendant la tournée
+    
+    stock_vitale_loaded = db.Column(db.Integer, default=0)  
+    stock_voltic_loaded = db.Column(db.Integer, default=0)  
+    stock_vitale_delivered = db.Column(db.Integer, default=0)  
     stock_voltic_delivered = db.Column(db.Integer, default=0)
-    status = db.Column(db.String(20), default='pending')  # pending, in_progress, completed
+    status = db.Column(db.String(20), default='pending')  
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
@@ -157,7 +157,7 @@ class AuditLog(db.Model):
     user = db.relationship('User', backref='audit_logs', lazy=True)
     agent = db.relationship('Agent', backref='audit_logs_agent', lazy=True)
 
-# ===== MODÈLES DE STOCK =====
+
 
 class StockItem(db.Model):
     __tablename__ = 'stock_items'
@@ -181,9 +181,9 @@ class StockMovement(db.Model):
     __tablename__ = 'stock_movements'
     id = db.Column(db.Integer, primary_key=True)
     stock_item_id = db.Column(db.Integer, db.ForeignKey('stock_items.id'), nullable=False)
-    movement_type = db.Column(db.String(20), nullable=False)  # 'in', 'out', 'transfer'
+    movement_type = db.Column(db.String(20), nullable=False)  
     quantity = db.Column(db.Integer, nullable=False)
-    reference = db.Column(db.String(50))  # Référence de la commande, livraison, etc.
+    reference = db.Column(db.String(50))  
     agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=True)
     notes = db.Column(db.Text)
@@ -200,12 +200,12 @@ class VehicleStock(db.Model):
     current_stock = db.Column(db.Integer, default=0)
     max_capacity = db.Column(db.Integer, default=50)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='loading')  # 'loading', 'in_transit', 'delivered', 'returned'
+    status = db.Column(db.String(20), default='loading')  
     
     agent = db.relationship('Agent', backref='vehicle_stocks')
     product = db.relationship('Product', backref='vehicle_stocks')
 
-# ===== MODÈLES DE PARAMÈTRES =====
+
 
 class SystemSettings(db.Model):
     __tablename__ = 'system_settings'

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 
 class AuthService {
-  // Fonction de connexion
+   
   Future<Map<String, dynamic>> login(String identifier, String password) async {
     final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.loginEndpoint}');
     
@@ -21,7 +21,7 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // 💾 SAUVEGARDE RÉELLE ET STRICTE (Fix Persistence)
+         
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', data['access_token']);
         await prefs.setString('role', data['role']); 
@@ -31,23 +31,23 @@ class AuthService {
         
         return {'success': true, 'data': data};
       } else {
-        // Erreur serveur (ex: mauvais mot de passe)
+         
         final errorData = jsonDecode(response.body);
         return {'success': false, 'message': errorData['msg'] ?? 'Erreur inconnue'};
       }
     } catch (e) {
-      // Erreur réseau (serveur éteint, pas de wifi...)
+       
       return {'success': false, 'message': 'Erreur de connexion : $e'};
     }
   }
 
-  // Vérifier si l'utilisateur est déjà connecté (au démarrage)
+   
   Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.containsKey('token');
   }
 
-  // Se déconnecter
+   
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

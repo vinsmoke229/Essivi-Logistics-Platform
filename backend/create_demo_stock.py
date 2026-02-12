@@ -13,7 +13,7 @@ def create_demo_stock_data():
     with app.app_context():
         print("🏭 Création des données de démonstration pour le stock...")
         
-        # Créer des produits
+        
         products_data = [
             {"name": "Vitale 1.5L", "price": 250},
             {"name": "Voltic 1.5L", "price": 300},
@@ -36,7 +36,7 @@ def create_demo_stock_data():
                 db.session.flush()
             created_products.append(product)
         
-        # Créer des articles de stock
+        
         stock_items_data = [
             {"product": "Vitale 1.5L", "total_stock": 500, "available_stock": 450, "threshold": 50},
             {"product": "Voltic 1.5L", "total_stock": 300, "available_stock": 280, "threshold": 30},
@@ -67,7 +67,7 @@ def create_demo_stock_data():
                 db.session.flush()
             created_stock_items.append(stock_item)
         
-        # Créer des mouvements de stock récents
+        
         movement_types = ["in", "out"]
         references = ["RESTOCK", "VENTE", "RETOUR", "PERTE", "TRANSFERT"]
         agents = Agent.query.limit(5).all()
@@ -87,10 +87,10 @@ def create_demo_stock_data():
             )
             db.session.add(movement)
         
-        # Créer des stocks de véhicules
+        
         if agents:
-            for agent in agents[:3]:  # 3 premiers agents
-                for product in created_products[:3]:  # 3 premiers produits
+            for agent in agents[:3]:  
+                for product in created_products[:3]:  
                     vehicle_stock = VehicleStock.query.filter_by(
                         agent_id=agent.id, 
                         product_id=product.id

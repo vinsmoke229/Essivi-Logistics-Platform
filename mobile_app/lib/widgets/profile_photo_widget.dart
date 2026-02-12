@@ -66,7 +66,7 @@ class ProfilePhotoWidget extends StatelessWidget {
 
   Widget _buildImage() {
     if (imageUrl != null && imageUrl!.isNotEmpty) {
-      // Si c'est un fichier local
+       
       if (imageUrl!.startsWith('/') || imageUrl!.contains('\\')) {
         return Image.file(
           File(imageUrl!),
@@ -78,7 +78,7 @@ class ProfilePhotoWidget extends StatelessWidget {
           },
         );
       }
-      // Si c'est une URL
+       
       else {
         return Image.network(
           imageUrl!,

@@ -13,9 +13,9 @@ class SyncService {
 
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
-  /// Lance la synchronisation des données pendientes
+   
   Future<void> syncDeliveries() async {
-    // ÉTAPE A : Vérifier la connexion internet
+     
     var connectivityResult = await (Connectivity().checkConnectivity());
     if (connectivityResult == ConnectivityResult.none) {
       print("📴 Pas de connexion internet. Synchronisation reportée.");
@@ -24,7 +24,7 @@ class SyncService {
 
     print("🔄 Démarrage de la synchronisation...");
 
-    // ÉTAPE B : Récupérer les livraisons non synchronisées
+     
     final unsyncedDeliveries = await _dbHelper.getUnsyncedDeliveries();
     
     if (unsyncedDeliveries.isEmpty) {
@@ -34,7 +34,7 @@ class SyncService {
 
     print("📦 ${unsyncedDeliveries.length} livraison(s) à envoyer au serveur.");
 
-    // Récupérer le token pour l'auth
+     
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
@@ -43,13 +43,13 @@ class SyncService {
       return;
     }
 
-    // ÉTAPE C : Boucler et envoyer chaque livraison
+     
     for (var delivery in unsyncedDeliveries) {
       try {
         await _uploadDelivery(delivery, token);
       } catch (e) {
         print("❌ Erreur sync livraison #${delivery['id']}: $e");
-        // On continue avec la prochaine livraison même si celle-ci échoue
+         
       }
     }
   }
@@ -59,15 +59,15 @@ class SyncService {
     
     var request = http.MultipartRequest('POST', uri);
     
-    // Headers
+     
     request.headers.addAll({
       'Authorization': 'Bearer $token',
       'Accept': 'application/json',
     });
 
-    // Champs Texte
+     
     request.fields['client_id'] = delivery['client_id']?.toString() ?? '';
-    // Si pas de client_id (nouveau client), on peut envoyer le nom/tel pour création auto côté backend
+     
     if (delivery['client_id'] == null) {
         request.fields['client_name_temp'] = delivery['client_name'] ?? '';
         request.fields['client_phone_temp'] = delivery['client_phone'] ?? '';
@@ -80,7 +80,7 @@ class SyncService {
     request.fields['gps_lng'] = delivery['gps_lng']?.toString() ?? '0.0';
     request.fields['created_at'] = delivery['created_at'];
 
-    // Gestion des Fichiers (Photos & Signature)
+     
     if (delivery['photo_url'] != null && delivery['photo_url'].isNotEmpty) {
       final photoFile = File(delivery['photo_url']);
       if (await photoFile.exists()) {
@@ -101,24 +101,24 @@ class SyncService {
       }
     }
 
-    // Envoi de la requête
+     
     try {
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
-      // ÉTAPE D : Gestion Succès INTÉGRAL (Texte + Fichiers)
+       
       if (response.statusCode == 200 || response.statusCode == 201) {
         print("✅ Livraison #${delivery['id']} synchronisée avec succès (Photos incluses) !");
         
-        // Marquer comme synchronisé en base locale uniquement si TOUT a été envoyé
+         
         await _dbHelper.markAsSynced(delivery['id']);
       } 
-      // ÉTAPE E : Gestion Échec (Réseau ou Serveur)
+       
       else {
         print("⚠️ Échec upload livraison #${delivery['id']} - Code: ${response.statusCode}");
         print("Réponse: ${response.body}");
-        // RATIONNEL LEAD DEV : On ne marque pas comme synchronisé (is_synced reste à 0).
-        // La livraison restera en local pour être retentée intégralement plus tard.
+         
+         
       }
     } catch (e) {
       print("❌ Erreur connexion pendant sync #${delivery['id']} : $e");

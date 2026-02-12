@@ -53,7 +53,7 @@ class _SimpleDeliveryScreenState extends ConsumerState<SimpleDeliveryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // BOUTON AJOUTER CLIENT
+                   
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -82,7 +82,7 @@ class _SimpleDeliveryScreenState extends ConsumerState<SimpleDeliveryScreen> {
                   
                   const SizedBox(height: 24),
                   
-                  // BOUTON NOUVELLE LIVRAISON DIRECTE
+                   
                   GestureDetector(
                     onTap: () => _showNewDeliveryDialog(),
                     child: Container(
@@ -146,7 +146,7 @@ class _SimpleDeliveryScreenState extends ConsumerState<SimpleDeliveryScreen> {
                             
                             return GestureDetector(
                               onTap: () {
-                                // Navigation vers DeliveryFormScreen avec la mission pré-remplie
+                                 
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(

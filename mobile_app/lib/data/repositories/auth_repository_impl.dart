@@ -17,10 +17,10 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<UserEntity?> login(String identifier, String password) async {
     try {
-      // 1. Appel API via RemoteDataSource
+       
       final userModel = await remoteDataSource.login(identifier, password);
       
-      // 2. Sécurité : Vérifier si le retour est NULL
+       
       if (userModel == null) {
         print("⚠️ REPOSITORY - Retour NULL du serveur");
         return null;
@@ -29,7 +29,7 @@ class AuthRepositoryImpl implements AuthRepository {
       print("🔍 DEBUG - Connexion réussie, mise en cache de l'utilisateur: ${userModel.name}");
       await localDataSource.cacheUser(userModel);
 
-      // 💾 PERSISTENCE STRICTE (Fix F5/Refresh issue)
+       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', userModel.accessToken);
       await prefs.setString('role', userModel.role);
@@ -71,7 +71,7 @@ class AuthRepositoryImpl implements AuthRepository {
         print("🔍 DEBUG - Inscription + Auto-Login réussi: ${userModel.name}");
         await localDataSource.cacheUser(userModel);
 
-        // PERSISTENCE POUR AUTO-LOGIN
+         
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', userModel.accessToken);
         await prefs.setString('role', userModel.role);

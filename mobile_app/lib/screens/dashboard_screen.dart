@@ -31,7 +31,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isLoading = false;
   String _userName = "";
   int _missionCount = 0;
-  Timer? _trackingTimer; // Gardé pour la structure demandée
+  Timer? _trackingTimer;  
 
   @override
   void initState() {
@@ -71,7 +71,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       });
     }
     
-    // Identity load
+     
     _loadIdentity();
 
     if (_isTourActive) {
@@ -121,13 +121,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _toggleTour() async {
-    // Si la tournée est active, on veut la terminer (pas de stock à charger)
+     
     if (_isTourActive) {
-      _processTourAction(null); // null = Fin de tournée
+      _processTourAction(null);  
       return;
     }
 
-    // Si on veut DÉMARRER, on affiche d'abord le dialogue de stock
+     
     final stockItems = await showDialog<List<Map<String, dynamic>>>(
       context: context,
       barrierDismissible: false,
@@ -155,11 +155,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final prefs = await SharedPreferences.getInstance();
 
     if (!_isTourActive) {
-      // DÉMARRER avec le stock
+       
       final tourId = await ref.read(dataServiceProvider).startTour(
         position.latitude, 
         position.longitude,
-        items: stockItems ?? [] // On passe les items
+        items: stockItems ?? []  
       );
       
       if (tourId != null) {
@@ -171,7 +171,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tournée démarrée ! "), backgroundColor: Colors.green));
       }
     } else {
-      // TERMINER
+       
       final result = await ref.read(dataServiceProvider).endTour(position.latitude, position.longitude);
       if (result != null) {
         await prefs.setBool('isTourActive', false);
@@ -225,7 +225,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (Reste de la méthode build inchangé)
+     
     return SessionTimeoutWrapper(
       timeoutDuration: const Duration(minutes: 5),
       onTimeout: () {
@@ -266,7 +266,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 24),
 
               GestureDetector(
-                onTap: _isLoading ? null : _toggleTour, // Utilise la nouvelle méthode
+                onTap: _isLoading ? null : _toggleTour,  
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
@@ -468,16 +468,16 @@ class _LoadStockDialogState extends ConsumerState<LoadStockDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context), // Annuler (retourne null)
+          onPressed: () => Navigator.pop(context),  
           child: const Text("ANNULER"),
         ),
         ElevatedButton(
           onPressed: () {
-            // Créer la liste des items à charger
+             
             List<Map<String, dynamic>> items = [];
             _quantities.forEach((id, qty) {
               if (qty > 0) {
-                // Trouver le produit pour avoir son nom si besoin, ou juste envoyer ID
+                 
                 final product = _products.firstWhere((p) => p['id'] == id, orElse: () => {});
                 items.add({
                   "product_id": id,

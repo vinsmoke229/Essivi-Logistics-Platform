@@ -22,7 +22,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
   File? _profileImage;
   bool _isLoading = false;
 
-  // Informations agent initialisées vides (seront chargées depuis l'API)
+   
   Map<String, dynamic> _agentInfo = {};
 
   @override
@@ -87,10 +87,10 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
     if (_profileImage == null) return;
 
     try {
-      // Sauvegarder localement d'abord
+       
       await _profileService.saveLocalProfilePhotoPath(_profileImage!.path);
       
-      // Uploader vers le backend
+       
       final success = await _profileService.updateProfilePhoto(_profileImage!);
       
       if (success) {
@@ -324,7 +324,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Carte du véhicule
+           
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -377,7 +377,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 
-                // Informations détaillées
+                 
                 Row(
                   children: [
                     Expanded(
@@ -405,7 +405,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
           
           const SizedBox(height: 12),
           
-          // Boutons d'action
+           
           Row(
             children: [
               Expanded(
@@ -637,7 +637,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // SECTION PHOTO DE PROFIL
+                   
                   Container(
                     padding: const EdgeInsets.all(30),
                     decoration: BoxDecoration(
@@ -683,7 +683,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
 
                   const SizedBox(height: 24),
 
-                   // SECTION INFORMATIONS PERSONNELLES
+                    
                   _buildInfoSection(
                     'INFORMATIONS PERSONNELLES',
                     [
@@ -700,12 +700,12 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
 
                   const SizedBox(height: 24),
 
-                  // SECTION TRICYCLE ASSIGNÉ
+                   
                   _buildVehicleSection(),
 
                   const SizedBox(height: 24),
 
-                  // SECTION STATISTIQUES
+                   
                   _buildInfoSection(
                     'PERFORMANCE',
                     [
@@ -722,7 +722,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
 
                   const SizedBox(height: 30),
 
-                  // BOUTON DÉCONNEXION
+                   
                   Container(
                     width: double.infinity,
                     height: 50,

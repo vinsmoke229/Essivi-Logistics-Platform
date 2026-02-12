@@ -2,7 +2,7 @@ import requests
 
 base_url = "http://127.0.0.1:5000/api"
 
-# 1. Connexion Admin
+
 login_payload = {"identifier": "admin@essivi.com", "password": "admin123"}
 resp = requests.post(f"{base_url}/auth/login", json=login_payload)
 token = resp.json().get('access_token')
@@ -11,7 +11,7 @@ if not token:
     print("❌ Pas de token")
     exit()
 
-# 2. Création Client
+
 headers = {"Authorization": f"Bearer {token}"}
 client_payload = {
     "name": "Boutique Maman Essi",

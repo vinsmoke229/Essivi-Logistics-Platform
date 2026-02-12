@@ -11,10 +11,10 @@ import os
 
 delivery_bp = Blueprint('deliveries', __name__, url_prefix='/api/deliveries')
 
-# Configuration du dossier d'images
+
 UPLOAD_DELIVERY_FOLDER = 'uploads/deliveries'
 
-# Helper pour obtenir le chemin absolu du dossier uploads deliveries
+
 def get_delivery_upload_path():
     return os.path.abspath(os.path.join(current_app.root_path, '..', 'uploads', 'deliveries'))
 
@@ -35,13 +35,13 @@ def save_base64_image(base64_str, prefix):
         return base64_str 
     
     try:
-        # S'assurer que le dossier existe
+        
         upload_path = ensure_delivery_upload_dir()
         
         format_part, imgstr = base64_str.split(';base64,')
         ext = format_part.split('/')[-1]
         
-        # Sécurité : Limiter les extensions
+        
         if ext.lower() not in ['png', 'jpg', 'jpeg']:
             ext = 'png'
             
@@ -51,19 +51,19 @@ def save_base64_image(base64_str, prefix):
         with open(filepath, "wb") as fh:
             fh.write(base64.b64decode(imgstr))
             
-        # On retourne le chemin relatif pour la DB
+        
         return f"uploads/deliveries/{filename}"
     except Exception as e:
         print(f"❌ Erreur critique décodage image: {e}")
-        # On lève une exception pour forcer le rollback du parent
+        
         raise ValueError(f"Échec de l'enregistrement de l'image {prefix}")
 
-# --- 1. ENREGISTRER UNE LIVRAISON (Mobile Agent) ---
+
 @delivery_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_delivery():
     claims = get_jwt()
-    # Sécurité : On s'assure que l'ID est un entier
+    
     try:
         user_id = int(str(claims['sub']))
     except:
@@ -72,26 +72,26 @@ def create_delivery():
     user_type = claims.get('type')
     data = request.get_json()
     
-    print("Données reçues :", data) # DEBUG 400
+    print("Données reçues :", data) 
     
-    # Correction Validation : On vérifie strictement None pour accepter la valeur 0
-    # Correction Validation : On vérifie que le client est présent
+    
+    
     if not data or data.get('client_id') is None:
         return jsonify({"msg": "Client requis"}), 400
 
-    # On vérifie si le client existe (Cast ID pour Postgres)
+    
     client_id = int(data['client_id'])
     client = Client.query.get(client_id)
     if not client:
         return jsonify({"msg": "Client introuvable"}), 404
 
-    # Identifiant de l'agent (automatique si mobile, manuel si admin)
+    
     agent_id = user_id if user_type == 'agent' else int(data.get('agent_id')) if data.get('agent_id') else None
 
     try:
-        # 1. Calculer le montant total et préparer les items
+        
         items_data = data.get('items', [])
-        # Support legacy (si l'app mobile envoie encore qty_vitale/voltic)
+        
         if not items_data and (data.get('quantity_vitale') or data.get('quantity_voltic')):
              from app.models.sql_models import Product
              p_vitale = Product.query.filter_by(name='Vitale').first()
@@ -105,11 +105,11 @@ def create_delivery():
         delivery_items_objects = []
         stock_movements = []
 
-        # Traitement des images Base64 (Mobile App)
+        
         photo_path = save_base64_image(data.get('photo_url'), 'photo')
         signature_path = save_base64_image(data.get('signature_url'), 'signature')
 
-        # Création de l'objet livraison
+        
         new_delivery = Delivery(
             agent_id=agent_id,
             client_id=data['client_id'],
@@ -122,7 +122,7 @@ def create_delivery():
             date=datetime.utcnow()
         )
         db.session.add(new_delivery)
-        db.session.flush() # ID généré
+        db.session.flush() 
 
         from app.models.sql_models import DeliveryItem, Product, StockItem, StockMovement
 
@@ -134,11 +134,11 @@ def create_delivery():
             product = Product.query.get(pid)
             if not product: continue
 
-            # Calcul montant
+            
             line_price = product.price * qty
             calculated_total += line_price
 
-            # Création Item
+            
             new_item = DeliveryItem(
                 delivery_id=new_delivery.id,
                 product_id=pid,
@@ -146,16 +146,16 @@ def create_delivery():
             )
             db.session.add(new_item)
 
-            # Gestion Stock
+            
             stock_item = StockItem.query.filter_by(product_id=pid, location='Entrepôt Principal').first()
             if stock_item:
-                 # Déduction Stock (Accepte négatif si stock manquant, ou bloquer ?)
-                 # Ici on autorise la livraison même si stock théorique < 0 pour ne pas bloquer le terrain
+                 
+                 
                  stock_item.available_stock -= qty
-                 # Si reserved stock était utilisé (cas tournée), on le réduit
+                 
                  stock_item.reserved_stock = max(0, stock_item.reserved_stock - qty)
 
-                 # Mouvement
+                 
                  mv = StockMovement(
                     stock_item_id=stock_item.id,
                     movement_type='out',
@@ -167,14 +167,14 @@ def create_delivery():
                  )
                  db.session.add(mv)
 
-        # Si un montant manuel est envoyé (et différent du calcul), on prend lequel ? 
-        # Règle PRO : On prend le calcul serveur (sécurité). 
-        # Sauf si remise manuelle gérée plus tard. Ici = calculé.
+        
+        
+        
         new_delivery.total_amount = calculated_total
         
         db.session.commit()
         
-        # 🔴 CLÔTURE DE MISSION : Si la livraison provient d'une commande assignée
+        
         order_id = data.get('order_id')
         if order_id:
             try:
@@ -186,29 +186,29 @@ def create_delivery():
                     print(f"✅ Mission #{order_id} clôturée automatiquement")
             except Exception as e:
                 print(f"⚠️ Erreur clôture mission #{order_id}: {e}")
-                # Non bloquant : la livraison est déjà enregistrée
+                
  
-        # Logs de sécurité (MongoDB + SQL)
+        
         log_activity(user_id, user_type, "CREATE_DELIVERY", {"id": new_delivery.id, "amount": calculated_total})
         log_action(user_id=user_id if user_type == 'admin' else None, 
                    agent_id=agent_id if user_type == 'agent' else None,
                    action="CREATE_DELIVERY", entity_type="delivery", 
                    entity_id=new_delivery.id, details=f"Montant: {calculated_total}, Items: {len(items_data)}")
 
-        # 5. NOTIFICATION (Email/SMS)
+        
         try:
             from app.services.notification_service import notification_service
-            # Data simplifiée pour notif
+            
             delivery_data = {
                 "id": new_delivery.id,
                 "client_name": client.name,
                 "agent_name": "Agent",
                 "total_amount": new_delivery.total_amount,
-                # "items_count": len(items_data) # TODO: Détailler dans notif V2
+                
             }
-            # On envoie à l'agent (email + sms) et potentiellement au client si email renseigné
+            
             notification_service.send_delivery_notification(
-                agent_email=client.phone + "@sim.com", # Fallback technique
+                agent_email=client.phone + "@sim.com", 
                 agent_phone=client.phone,
                 delivery_info=delivery_data
             )
@@ -220,15 +220,15 @@ def create_delivery():
             "id": new_delivery.id,
             "total_amount": new_delivery.total_amount,
             "date": new_delivery.date.strftime("%Y-%m-%d %H:%M:%S"),
-            "order_completed": bool(order_id)  # Indique si une mission a été clôturée
+            "order_completed": bool(order_id)  
         }), 201
 
     except Exception as e:
         db.session.rollback()
-        print(f"❌ ERREUR CRITIQUE LIVRAISON : {str(e)}") # S'affiche dans ton terminal noir
+        print(f"❌ ERREUR CRITIQUE LIVRAISON : {str(e)}") 
         return jsonify({"msg": f"Erreur interne : {str(e)}"}), 500
 
-# --- 2. LISTER LES LIVRAISONS ---
+
 @delivery_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_deliveries():
@@ -247,7 +247,7 @@ def get_deliveries():
 
     result = []
     for d in deliveries:
-        # Construction du résumé des produits (Legacy support pour l'affichage si besoin)
+        
         items_summary = []
         q_vitale = 0
         q_voltic = 0
@@ -258,7 +258,7 @@ def get_deliveries():
                 "quantity": item.quantity,
                 "product_id": item.product_id
             })
-            # Mapping temporaire pour le frontend si il attend encore ces clés exactes
+            
             if 'Vitale' in item.product.name: q_vitale += item.quantity
             elif 'Voltic' in item.product.name: q_voltic += item.quantity
 
@@ -269,20 +269,20 @@ def get_deliveries():
             "agent_phone": d.agent.phone if d.agent else "--",
             "client_name": d.client.name if d.client else "Inconnu",
             "client_phone": d.client.phone if d.client else "--",
-            "quantity_vitale": q_vitale, # Conservé pour compatibilité Front
-            "quantity_voltic": q_voltic, # Conservé pour compatibilité Front
-            "items": items_summary,      # Nouvelle structure
+            "quantity_vitale": q_vitale, 
+            "quantity_voltic": q_voltic, 
+            "items": items_summary,      
             "total_amount": d.total_amount,
             "gps_lat": d.gps_lat_delivery,
             "gps_lng": d.gps_lng_delivery,
             "photo_url": format_url(d.photo_url),
             "signature_url": format_url(d.signature_url),
             "status": d.status,
-            "date_iso": d.date.isoformat()  # ✅ Format ISO robuste pour le parsing
+            "date_iso": d.date.isoformat()  
         })
     return jsonify(result), 200
 
-# --- 3. LIRE UNE LIVRAISON PAR ID ---
+
 @delivery_bp.route('/<int:id>', methods=['GET'])
 @jwt_required()
 def get_delivery(id):
@@ -316,7 +316,7 @@ def get_delivery(id):
         "signature_url": format_url(d.signature_url)
     }), 200
 
-# --- 4. SUPPRIMER UNE LIVRAISON ---
+
 @delivery_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_delivery(id):
@@ -337,7 +337,7 @@ def delete_delivery(id):
         db.session.delete(delivery)
         db.session.commit()
         
-        # LOG D'AUDIT
+        
         log_action(
             user_id=claims.get('sub'),
             action="DELETE_DELIVERY",
@@ -351,7 +351,7 @@ def delete_delivery(id):
         db.session.rollback()
         return jsonify({"msg": "Erreur lors de la suppression"}), 500
 
-# --- 5. LISTER LES STATUTS DE LIVRAISON ---
+
 @delivery_bp.route('/statuses', methods=['GET'])
 @jwt_required()
 def get_delivery_statuses():

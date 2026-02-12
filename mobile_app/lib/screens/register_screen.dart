@@ -22,17 +22,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _addressController = TextEditingController();
   final _pinController = TextEditingController();
   
-  LatLng _pinnedLocation = const LatLng(6.13, 1.22); // Default Lomé
+  LatLng _pinnedLocation = const LatLng(6.13, 1.22);  
   final MapController _mapController = MapController();
   
   void _submit() async {
-    // ... logic ...
+     
     final lat = _pinnedLocation.latitude;
     final lng = _pinnedLocation.longitude;
-    // Note: I'll need to update the provider to accept GPS but for now let's focus on UI
+     
     if (!_formKey.currentState!.validate()) return;
     
-    // Hide keyboard
+     
     FocusScope.of(context).unfocus();
 
     final name = _nameController.text.trim();
@@ -50,7 +50,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         pin: pin
       );
 
-      // 🚀 AUTO-LOGIN & ROUTAGE DIRECT (Mission 2)
+       
       final authState = ref.read(authProvider);
       if (authState.user != null && authState.error == null) {
         if (mounted) {
@@ -60,7 +60,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               backgroundColor: Colors.green,
             )
           );
-          // Redirection vers le Dashboard Client directement
+           
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const ClientDashboardScreen()),
@@ -152,7 +152,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    // 📍 CARTE DE PINNING (Mission 3)
+                     
                     Container(
                       height: 250,
                       width: double.infinity,
@@ -296,7 +296,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: 24),
                     
-                    // Instructions
+                     
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),

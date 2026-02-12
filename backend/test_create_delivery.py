@@ -2,8 +2,8 @@ import requests
 
 base_url = "http://127.0.0.1:5000/api"
 
-# 1. Connexion en tant qu'AGENT (Jean Koffi créé à l'étape 4)
-# Note : On utilise le matricule ou le téléphone
+
+
 login_payload = {
     "identifier": "AGT-001", 
     "password": "agentpass123"
@@ -19,15 +19,15 @@ if resp.status_code != 200:
 token = resp.json().get('access_token')
 print(f"✅ Agent connecté ! (Role: {resp.json().get('role')})")
 
-# 2. Enregistrement de la Livraison
+
 headers = {"Authorization": f"Bearer {token}"}
 
 delivery_payload = {
-    "client_id": 1,         # ID de la boutique créée juste avant
+    "client_id": 1,         
     "quantity_vitale": 20,
     "quantity_voltic": 30,
-    "total_amount": 25000,  # 25.000 FCFA
-    "gps_lat": 6.1305,      # Position GPS exacte de la livraison
+    "total_amount": 25000,  
+    "gps_lat": 6.1305,      
     "gps_lng": 1.2205
 }
 

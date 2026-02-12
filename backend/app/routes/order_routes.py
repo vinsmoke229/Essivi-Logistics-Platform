@@ -7,7 +7,7 @@ from app.utils import haversine_distance
 
 order_bp = Blueprint('orders', __name__, url_prefix='/api/orders')
 
-# 1. CRÉER UNE COMMANDE
+
 @order_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_order():
@@ -17,7 +17,7 @@ def create_order():
     if not data:
         return jsonify({"msg": "Aucune donnée reçue"}), 400
 
-    # Déterminer le client_id
+    
     if claims.get('type') == 'admin':
         client_id = int(data.get('client_id')) if data.get('client_id') else None
     else:
@@ -27,7 +27,7 @@ def create_order():
         return jsonify({"msg": "ID Client manquant"}), 400
 
     try:
-        # Création de la commande de base
+        
         new_order = Order(
             client_id=client_id,
             preferred_delivery_time=data.get('preferred_time', ''),
@@ -36,12 +36,12 @@ def create_order():
             created_at=datetime.utcnow()
         )
         db.session.add(new_order)
-        db.session.flush() # Pour avoir l'id
+        db.session.flush() 
 
         from app.models.sql_models import OrderItem, Product
         items_data = data.get('items', [])
         
-        # Support pour vieux format si besoin
+        
         if not items_data:
             if 'quantity_vitale' in data and int(data['quantity_vitale']) > 0:
                 p = Product.query.filter_by(name='Vitale').first()
@@ -65,7 +65,7 @@ def create_order():
         db.session.rollback()
         return jsonify({"msg": f"Erreur : {str(e)}"}), 500
 
-# 2. LISTER LES COMMANDES
+
 @order_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_orders():
@@ -77,7 +77,7 @@ def get_orders():
         orders = Order.query.order_by(Order.created_at.desc()).all()
     elif user_type == 'client':
         orders = Order.query.filter_by(client_id=user_id).order_by(Order.created_at.desc()).all()
-    else: # Agent
+    else: 
         orders = Order.query.filter_by(agent_id=user_id).order_by(Order.created_at.desc()).all()
 
     result = []
@@ -100,13 +100,13 @@ def get_orders():
             "items": items_summary,
             "agent_id": o.agent_id,
             "assigned_agent_name": o.agent.full_name if o.agent else None,
-            "quantity_vitale": 0, # Legacy
-            "quantity_voltic": 0  # Legacy
+            "quantity_vitale": 0, 
+            "quantity_voltic": 0  
         })
     
     return jsonify(result), 200
 
-# 3. ASSIGNER UNE COMMANDE (ADMIN)
+
 @order_bp.route('/<int:id>/assign', methods=['PUT'])
 @jwt_required()
 def assign_order(id):
@@ -126,7 +126,7 @@ def assign_order(id):
         order.status = 'accepted'
         db.session.commit()
 
-        # NOTIFICATION AGENT
+        
         try:
             from app.services.notification_service import notification_service
             agent = Agent.query.get(order.agent_id)
@@ -154,7 +154,7 @@ def assign_order(id):
         db.session.rollback()
         return jsonify({"msg": f"Erreur : {str(e)}"}), 500
 
-# 3.1 SUGGESTION D'AGENTS PAR PROXIMITÉ
+
 @order_bp.route('/<int:id>/suggest-agents', methods=['GET'])
 @jwt_required()
 def suggest_agents(id):
@@ -183,7 +183,7 @@ def suggest_agents(id):
     suggestions.sort(key=lambda x: x['distance_km'])
     return jsonify(suggestions[:5]), 200
 
-# 4. RÉCUPÉRER MES MISSIONS (AGENT)
+
 @order_bp.route('/my-missions', methods=['GET'])
 @jwt_required()
 def get_my_missions():
@@ -211,7 +211,7 @@ def get_my_missions():
         })
     return jsonify(result), 200
 
-# 5. MODIFIER UNE COMMANDE (ADMIN)
+
 @order_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_order(id):
@@ -225,12 +225,12 @@ def update_order(id):
     if 'status' in data: order.status = data['status']
     if 'instructions' in data: order.instructions = data['instructions']
     
-    # Mise à jour des articles si fournis
+    
     if 'items' in data:
         from app.models.sql_models import OrderItem
-        # Suppression des anciens items
+        
         OrderItem.query.filter_by(order_id=order.id).delete()
-        # Ajout des nouveaux
+        
         for item in data['items']:
             new_item = OrderItem(
                 order_id=order.id,
@@ -246,7 +246,7 @@ def update_order(id):
         db.session.rollback()
         return jsonify({"msg": f"Erreur : {str(e)}"}), 500
 
-# 6. SUPPRIMER UNE COMMANDE (ADMIN)
+
 @order_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_order(id):

@@ -8,37 +8,37 @@ from app.utils.helpers import roles_required
 
 tour_bp = Blueprint('tours', __name__, url_prefix='/api/tours')
 
-# 1. DÉMARRER UNE TOURNÉE AVEC CHARGEMENT DU STOCK
+
 @tour_bp.route('/start', methods=['POST'])
 @jwt_required()
 def start_tour():
     claims = get_jwt()
     
     try:
-        # Robust conversion of agent_id
+        
         agent_id = int(str(claims['sub']))
     except (ValueError, KeyError) as e:
         print(f"❌ AUTH ERROR: Invalid token sub: {claims.get('sub')} - {e}")
         return jsonify({"msg": "Token invalide ou Agent ID manquant"}), 400
 
     data = request.get_json() or {}
-    print(f"📥 START TOUR DATA: {data}") # Debug data reception
+    print(f"📥 START TOUR DATA: {data}") 
 
-    # Récupérer les quantités à charger (MIXTE : Ancien + Nouveau)
+    
     items_to_load = data.get('items', [])
     
-    # Rétrocompatibilité : Convertir anciens champs en items si items est vide
+    
     if not items_to_load:
         vitale_old = int(data.get('stock_vitale', 0))
         voltic_old = int(data.get('stock_voltic', 0))
         if vitale_old > 0: items_to_load.append({"product_name": "Vitale", "quantity": vitale_old})
         if voltic_old > 0: items_to_load.append({"product_name": "Voltic", "quantity": voltic_old})
 
-    # Log pour debug
+    
     print(f"📦 Stock to load: {items_to_load}")
 
     try:
-        # Vérifier si une tournée est déjà en cours (Mode Récupération)
+        
         active_tour = Tour.query.filter_by(agent_id=agent_id, end_time=None).first()
         if active_tour:
             print(f"⚠️ Tournée déjà active pour agent {agent_id}. Récupération ID: {active_tour.id}")
@@ -48,7 +48,7 @@ def start_tour():
                 "is_recovery": True
             }), 200
         
-        # Vérifier le stock disponible dans l'entrepôt
+        
         from app.models.sql_models import Product, StockItem
         
         for item in items_to_load:
@@ -58,7 +58,7 @@ def start_tour():
             
             if qty <= 0: continue
 
-            # Trouver le produit (par ID de préférence, sinon Nom)
+            
             product = None
             if prod_id:
                 product = Product.query.get(prod_id)
@@ -67,21 +67,21 @@ def start_tour():
             
             if not product:
                 print(f"❌ Product not found: {item}")
-                continue # Skip invalid product
+                continue 
 
-            # Vérifier stock
+            
             stock = StockItem.query.filter_by(product_id=product.id, location='Entrepôt Principal').first()
             if not stock or stock.available_stock < qty:
                 msg = f"Stock insuffisant pour {product.name} ({stock.available_stock if stock else 0} dispo)"
                 print(f"❌ {msg}")
                 return jsonify({"msg": msg}), 400
 
-        # Créer la tournée
+        
         new_tour = Tour(
             agent_id=agent_id,
             start_lat=data.get('lat', 0.0),
             start_lng=data.get('lng', 0.0),
-            # Pour la rétrocompatibilité mobile (affichage), on peut remplir ces champs si Vitale/Voltic sont présents
+            
             stock_vitale_loaded=next((item['quantity'] for item in items_to_load if 'Vitale' in item.get('product_name', '')), 0),
             stock_voltic_loaded=next((item['quantity'] for item in items_to_load if 'Voltic' in item.get('product_name', '')), 0),
             status='in_progress',
@@ -90,7 +90,7 @@ def start_tour():
 
         db.session.add(new_tour)
         
-        # DECREMENTER LE STOCK REEL
+        
         for item in items_to_load:
             prod_id = item.get('product_id')
             prod_name = item.get('product_name')
@@ -110,7 +110,7 @@ def start_tour():
 
         db.session.commit()
         
-        # LOG D'AUDIT
+        
         log_action(
             agent_id=agent_id,
             action="TOUR_STARTED",
@@ -128,11 +128,11 @@ def start_tour():
     except Exception as e:
         db.session.rollback()
         import traceback
-        traceback.print_exc() # Print full stack trace to console
+        traceback.print_exc() 
         print(f"❌ CRASH API START TOUR: {str(e)}") 
         return jsonify({"msg": f"Erreur serveur interne: {str(e)}"}), 500
 
-# 2. TERMINER UNE TOURNÉE ET RESTITUER LE STOCK
+
 @tour_bp.route('/end', methods=['POST'])
 @jwt_required()
 def end_tour():
@@ -144,26 +144,26 @@ def end_tour():
 
     data = request.get_json()
 
-    # Trouver la tournée active
+    
     tour = Tour.query.filter_by(agent_id=agent_id, end_time=None).first()
     if not tour:
         return jsonify({"msg": "Aucune tournée active trouvée"}), 404
 
-    # Clôturer la tournée
+    
     tour.end_time = datetime.utcnow()
     tour.end_lat = data.get('lat')
     tour.end_lng = data.get('lng')
     tour.status = 'completed'
 
-    # CALCUL AUTOMATIQUE DU BILAN
-    # ⚠️ IMPORTANT : On utilise end_time APRÈS l'avoir défini
+    
+    
     deliveries = Delivery.query.filter(
         Delivery.agent_id == agent_id,
         Delivery.date >= tour.start_time,
         Delivery.date <= tour.end_time
     ).all()
 
-    # CALCUL AUTOMATIQUE DU BILAN DYNAMIQUE
+    
     vitale_qty = 0
     voltic_qty = 0
     total_cash = 0.0
@@ -171,7 +171,7 @@ def end_tour():
     for d in deliveries:
         total_cash += d.total_amount
         for item in d.items:
-            # On vérifie par nom de produit (Robuste car les noms sont uniques)
+            
             if 'Vitale' in item.product.name:
                 vitale_qty += item.quantity
             elif 'Voltic' in item.product.name:
@@ -182,7 +182,7 @@ def end_tour():
     tour.stock_vitale_delivered = vitale_qty
     tour.stock_voltic_delivered = voltic_qty
     
-    # RESTITUER LE STOCK NON LIVRÉ À L'ENTREPÔT
+    
     vitale_restant = tour.stock_vitale_loaded - tour.stock_vitale_delivered
     voltic_restant = tour.stock_voltic_loaded - tour.stock_voltic_delivered
     
@@ -204,7 +204,7 @@ def end_tour():
 
     db.session.commit()
     
-    # LOG D'AUDIT
+    
     log_action(
         agent_id=agent_id,
         action="TOUR_COMPLETED",
@@ -225,7 +225,7 @@ def end_tour():
         }
     }), 200
 
-# 3. LISTER TOUTES LES TOURNÉES (Pour l'admin)
+
 @tour_bp.route('', methods=['GET'])
 @jwt_required()
 def get_all_tours():
@@ -250,7 +250,7 @@ def get_all_tours():
     
     return jsonify(results), 200
 
-# 4. LIRE UNE TOURNÉE PAR ID
+
 @tour_bp.route('/<int:id>', methods=['GET'])
 @jwt_required()
 def get_tour(id):
@@ -272,7 +272,7 @@ def get_tour(id):
         "end_lng": tour.end_lng
     }), 200
 
-# 5. OBTENIR LE STOCK VÉHICULE GLOBAL
+
 @tour_bp.route('/vehicle-stock', methods=['GET'])
 @jwt_required()
 def get_vehicle_stock():

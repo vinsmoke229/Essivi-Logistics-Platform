@@ -17,11 +17,11 @@ def format_url(url):
     path = url[1:] if url.startswith('/') else url
     return f"{request.host_url}{path}"
 
-# Helper pour obtenir le chemin absolu du dossier uploads
+
 def get_upload_path():
-    # On remonte d'un niveau depuis 'app' pour trouver 'uploads' à la racine du projet
-    # current_app.root_path est généralement .../backend/app
-    # donc .../backend/app/../uploads/clients pointera vers .../backend/uploads/clients
+    
+    
+    
     base_path = os.path.dirname(os.path.abspath(current_app.root_path))
     return os.path.join(base_path, 'uploads', 'clients')
 
@@ -31,7 +31,7 @@ def ensure_upload_dir():
         os.makedirs(path, exist_ok=True)
     return path
 
-# --- 1. CRÉER UN CLIENT ---
+
 @client_bp.route('/', methods=['POST'])
 def create_client():
     from flask_jwt_extended import verify_jwt_in_request
@@ -44,7 +44,7 @@ def create_client():
     if Client.query.filter_by(phone=data['phone'], is_active=True).first():
         return jsonify({"msg": "Ce numéro de téléphone est déjà utilisé par un client actif"}), 409
 
-    # Gestion du PIN (Par défaut '0000' si non fourni)
+    
     pin_to_hash = data.get('pin', '0000')
     pin_hash = generate_password_hash(pin_to_hash)
 
@@ -104,7 +104,7 @@ def create_client():
         db.session.rollback()
         return jsonify({"msg": "Erreur de connexion au serveur"}), 500
 
-# --- 2. LISTER LES CLIENTS (Uniquement actifs) ---
+
 @client_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_clients():
@@ -125,7 +125,7 @@ def get_clients():
         })
     return jsonify(result), 200
 
-# --- 3. LIRE UN CLIENT ---
+
 @client_bp.route('/<int:id>', methods=['GET'])
 @jwt_required()
 def get_client(id):
@@ -148,7 +148,7 @@ def get_client(id):
         }
     }), 200
 
-# --- PROFIL DU CLIENT CONNECTÉ ---
+
 @client_bp.route('/profile', methods=['GET'])
 @jwt_required()
 def get_client_profile():
@@ -173,7 +173,7 @@ def get_client_profile():
     except Exception as e:
         return jsonify({"msg": "Erreur profil client", "error": str(e)}), 500
 
-# --- 4. MISE À JOUR CLIENT ---
+
 
 @client_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -211,7 +211,7 @@ def update_client(id):
         db.session.rollback()
         return jsonify({"msg": f"Erreur update : {str(e)}"}), 500
 
-# --- 5. SUPPRIMER UN CLIENT (Soft Delete) ---
+
 @client_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_client(id):
@@ -222,7 +222,7 @@ def delete_client(id):
     client = Client.query.get_or_404(id)
     
     try:
-        # Action : Soft Delete au lieu de Hard Delete pour éviter les erreurs de contrainte
+        
         client.is_active = False
         db.session.commit()
         
@@ -238,7 +238,7 @@ def delete_client(id):
         db.session.rollback()
         return jsonify({"msg": f"Erreur : {str(e)}"}), 500
 
-# --- 6. UPLOAD PHOTO POINT DE VENTE ---
+
 @client_bp.route('/upload-photo', methods=['POST'])
 @jwt_required()
 def upload_client_photo():
@@ -270,21 +270,21 @@ def get_client_photo(filename):
     
     return jsonify({"msg": "Photo non trouvée"}), 404
 
-# --- 7. BUSINESS INTELLIGENCE : STATS CLIENT ---
+
 @client_bp.route('/<int:id>/stats', methods=['GET'])
 @jwt_required()
 def get_client_stats(id):
     from app.models.sql_models import Delivery
     client = Client.query.get_or_404(id)
     
-    # 1. Calcul Panier Moyen (Uniquement livraisons terminées)
+    
     deliveries = Delivery.query.filter_by(client_id=id, status='completed').order_by(Delivery.date.asc()).all()
     count = len(deliveries)
     
     total_spent = sum(d.total_amount for d in deliveries)
     panier_moyen = total_spent / count if count > 0 else 0
     
-    # 2. Calcul Fréquence (Moyenne de jours entre livraisons)
+    
     frequence = 0
     if count >= 2:
         date_first = deliveries[0].date
@@ -302,7 +302,7 @@ def get_client_stats(id):
         "bi": {
             "panier_moyen": round(panier_moyen, 2),
             "frequence": round(frequence, 1),
-            "solde": 0, # Initialisé à 0 par défaut
+            "solde": 0, 
             "total_livraisons": count,
             "total_depense": total_spent
         }

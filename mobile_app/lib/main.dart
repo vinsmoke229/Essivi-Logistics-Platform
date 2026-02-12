@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/date_symbol_data_local.dart'; // ⬅️ INDISPENSABLE
+import 'package:intl/date_symbol_data_local.dart';  
 import 'package:mobile_app/screens/login_screen.dart';
 import 'package:mobile_app/utils/session_timeout_wrapper.dart';
 
@@ -21,15 +21,15 @@ import 'package:mobile_app/screens/client_dashboard_screen.dart';
 import 'package:mobile_app/screens/dashboard_screen.dart';
 
 void main() async {
-  // 1. Assurer l'initialisation de Flutter
+   
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 2. Initialisation du service de fond (Mobile uniquement)
+   
   if (!kIsWeb) {
     await BackgroundLocationService.initializeService();
   }
 
-  // 3. Setup SQLite FFI (Desktop/Test)
+   
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     try {
       sqfliteFfiInit();
@@ -39,11 +39,11 @@ void main() async {
     }
   }
 
-  // 4. Initialisations Vitales
+   
   await initializeDateFormatting('fr_FR', null);
   await Hive.initFlutter();
 
-  // 5. Lecture des SharedPreferences pour le Routage au Boot
+   
   final sharedPreferences = await SharedPreferences.getInstance();
   final token = sharedPreferences.getString('auth_token');
   final role = sharedPreferences.getString('role');
@@ -51,7 +51,7 @@ void main() async {
   
   print("🚗 BOOTING - Role: $role, Name: $name");
 
-  // 🚀 DÉTERMINATION DE L'ÉCRAN INITIAL
+   
   Widget initialScreen;
   if (token != null && token.isNotEmpty) {
     if (role == 'client') {
@@ -65,7 +65,7 @@ void main() async {
     initialScreen = const LoginScreen();
   }
 
-  // 6. Setup Dependencies (API & Repositories)
+   
   final apiClient = ApiClient();
   final authLocalDataSource = AuthLocalDataSourceImpl(sharedPreferences: sharedPreferences);
   final authRemoteDataSource = AuthRemoteDataSourceImpl(apiClient: apiClient);
@@ -74,7 +74,7 @@ void main() async {
     localDataSource: authLocalDataSource,
   );
 
-  // 7. Lancement de l'App (runApp)
+   
   runApp(
     ProviderScope(
       overrides: [
@@ -100,7 +100,7 @@ class EssiviApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      // On entoure l'app avec le timeout de session
+       
       home: SessionTimeoutWrapper(
         child: initialScreen,
       ),

@@ -10,7 +10,7 @@ from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
 
-# 1. Charger le .env en priorité absolue
+
 load_dotenv()
 
 db = SQLAlchemy()
@@ -22,11 +22,11 @@ mongo_client = None
 def create_app():
     flask_app = Flask(__name__)
     
-    # 2. Récupération de l'URL Postgres depuis le .env
-    # On met une valeur par défaut pour SQLite uniquement si Postgres n'est pas trouvé
+    
+    
     db_url = os.environ.get('DATABASE_URL')
     
-    # DEBUG CRITIQUE : Pour voir dans ton terminal quelle base est lue
+    
     print("\n" + "!"*60)
     print(f"🔌 BACKEND CONNECTÉ À : {db_url}")
     print("!"*60 + "\n")
@@ -43,18 +43,18 @@ def create_app():
     flask_app.url_map.strict_slashes = False
     CORS(flask_app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True, expose_headers=["Authorization"])
 
-    # Initialiser Socket.IO (Mode Eventlet OBLIGATOIRE pour Windows + Threads)
+    
     global socketio
     socketio = SocketIO(flask_app, cors_allowed_origins="*", async_mode='eventlet')
 
-    # Importer les événements Socket.IO (APRÈS l'initialisation de socketio)
+    
     try:
         import app.socketio_events
         print("✅ Événements Socket.IO importés")
     except Exception as e:
         print(f"⚠️ Erreur import socketio_events: {e}")
 
-    # Connexion MongoDB
+    
     global mongo_client
     try:
         mongo_client = MongoClient(flask_app.config['MONGO_URI'])
@@ -73,7 +73,7 @@ def create_app():
         uploads_path = os.path.abspath(os.path.join(flask_app.root_path, '..', 'uploads'))
         return send_from_directory(uploads_path, filename)
 
-    # --- ENREGISTREMENT DES ROUTES ---
+    
     from app.routes.auth_routes import auth_bp
     from app.routes.agent_routes import agent_bp
     from app.routes.client_routes import client_bp
@@ -92,14 +92,14 @@ def create_app():
     from app.routes.settings_routes import settings_bp
     from app.routes.socketio_routes import socketio_bp
 
-    # Ajout des routes manquantes
+    
     try:
         from app.routes.map_routes import map_bp
         flask_app.register_blueprint(map_bp)
         print(" Routes map importées")
     except ImportError:
         print(" Routes map non trouvées, création fallback...")
-        # Créer les routes map directement si import échoue
+        
         from flask import Blueprint, jsonify, request
         from flask_jwt_extended import jwt_required
         from datetime import datetime
@@ -214,7 +214,7 @@ def create_app():
     from app.routes.evaluation_routes import eval_bp
     flask_app.register_blueprint(eval_bp)
 
-    # Enregistrer les routes notifications
+    
     try:
         from app.routes.notifications_routes import notifications_bp
         flask_app.register_blueprint(notifications_bp)
@@ -222,7 +222,7 @@ def create_app():
     except ImportError:
         print(" Routes notifications non trouvées")
 
-    # Initialisation du Scheduler de Reporting
+    
     try:
         from app.services.reporting_bot import init_scheduler
         init_scheduler(flask_app)

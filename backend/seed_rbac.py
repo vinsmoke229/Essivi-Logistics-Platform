@@ -43,7 +43,7 @@ def seed_rbac_users():
                 db.session.add(new_user)
                 print(f"✅ Créé : {u_data['email']} ({u_data['role']})")
             else:
-                user.role = u_data['role'] # Update role if exist
+                user.role = u_data['role'] 
                 user.password_hash = generate_password_hash(u_data['password'])
                 print(f"🔄 Mis à jour : {u_data['email']}")
         

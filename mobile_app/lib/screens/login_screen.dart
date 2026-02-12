@@ -22,13 +22,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     
-    // Hide keyboard
+     
     FocusScope.of(context).unfocus();
 
     final identifier = _identifierController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Si c'est un client de test, créer automatiquement le compte
+     
     if (!_isAgentMode && identifier == "00228912345678") {
       _createTestClientIfNeeded();
     }
@@ -37,8 +37,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _createTestClientIfNeeded() {
-    // Logique pour créer un client de test si nécessaire
-    // Cette fonction pourrait appeler une API pour créer le client
+     
+     
     print("Création du client de test si nécessaire...");
   }
 
@@ -51,18 +51,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to auth state changes for navigation or error handling
+     
     ref.listen(authProvider, (previous, next) {
       if (next.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(next.error!), backgroundColor: Colors.red),
         );
       } else if (next.user != null) {
-        // DEBUG: Afficher le rôle pour diagnostic
+         
         print("🔍 DEBUG - Rôle utilisateur: ${next.user!.role}");
         print("🔍 DEBUG - Mode actuel: ${_isAgentMode ? 'AGENT' : 'CLIENT'}");
         
-        // PRIORITÉ AU MODE SÉLECTIONNÉ PAR L'UTILISATEUR
+         
         if (_isAgentMode) {
           print("🔍 DEBUG - Redirection forcée vers DashboardScreen (mode agent)");
           Navigator.of(context).pushReplacement(

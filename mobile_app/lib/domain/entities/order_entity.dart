@@ -3,8 +3,8 @@ class OrderEntity {
   final String status;
   final String createdAt;
   final String itemsDescription;
-  final int quantityVitale; // Pour la compatibilité
-  final int quantityVoltic; // Pour la compatibilité
+  final int quantityVitale;  
+  final int quantityVoltic;  
   final String? preferredTime;
   final String? instructions;
   final double totalAmount;

@@ -2,7 +2,7 @@ import requests
 
 base_url = "http://127.0.0.1:5000/api"
 
-# 1. Se connecter pour avoir le Token
+
 login_payload = {
     "identifier": "admin@essivi.com",
     "password": "admin123"
@@ -16,7 +16,7 @@ if not token:
 
 print("✅ Connexion Admin OK. Token récupéré.")
 
-# 2. Créer un Agent
+
 headers = {"Authorization": f"Bearer {token}"}
 agent_payload = {
     "matricule": "AGT-001",

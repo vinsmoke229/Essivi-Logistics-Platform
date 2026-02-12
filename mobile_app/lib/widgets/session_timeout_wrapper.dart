@@ -32,12 +32,12 @@ class _SessionTimeoutWrapperState extends ConsumerState<SessionTimeoutWrapper> {
     _timeoutTimer?.cancel();
     _warningTimer?.cancel();
 
-    // Avertissement 1 minute avant timeout
+     
     _warningTimer = Timer(const Duration(minutes: 4), () {
       _showWarningDialog();
     });
 
-    // Timeout principal
+     
     _timeoutTimer = Timer(widget.timeoutDuration, () {
       widget.onTimeout();
     });

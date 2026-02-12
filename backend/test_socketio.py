@@ -1,6 +1,6 @@
 import socketio
 
-# Créer un client Socket.IO
+
 sio = socketio.Client()
 
 @sio.event
@@ -8,7 +8,7 @@ def connect():
     print('✅ Connexion Socket.IO établie')
     print('🔑 Envoi du token de test...')
     
-    # Envoyer un token JWT de test (vide pour l'instant)
+    
     sio.emit('authenticate', {'token': 'test-token'})
 
 @sio.event
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         print('🎯 Connecté avec succès !')
         print('📡 En attente de messages...')
         
-        # Garder la connexion ouverte
+        
         sio.wait()
         
     except Exception as e:

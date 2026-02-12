@@ -117,7 +117,7 @@ class _ClientDashboardScreenState extends ConsumerState<ClientDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // BALANCE CARD
+                       
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(28),

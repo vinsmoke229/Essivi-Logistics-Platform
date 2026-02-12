@@ -62,7 +62,7 @@ class HiveService {
   late Box<OfflineDelivery> _deliveryBox;
 
   Future<void> init() async {
-    // Register adapter if not already registered
+     
     if (!Hive.isAdapterRegistered(1)) {
       Hive.registerAdapter(OfflineDeliveryAdapter());
     }
@@ -115,7 +115,7 @@ class HiveService {
   int get unsyncedCount => getUnsyncedDeliveries().length;
 }
 
-// Type Adapter for Hive
+ 
 class OfflineDeliveryAdapter extends TypeAdapter<OfflineDelivery> {
   @override
   final int typeId = 1;

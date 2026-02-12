@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:path/path.dart';
-import 'package:flutter/foundation.dart'; // Pour kIsWeb
+import 'package:flutter/foundation.dart';  
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -21,7 +21,7 @@ class DatabaseHelper {
         _isInitialized = true;
       } catch (e) {
         print("❌ Erreur d'initialisation de la base de données: $e");
-        // En cas d'erreur, retourner une base de données vide simulée
+         
         _database = await _createMockDatabase();
         _isInitialized = true;
       }
@@ -30,7 +30,7 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    // SUR LE WEB, PAS DE SQFLITE, ON UTILISE LE MOCK DIRECTEMENT
+     
     if (kIsWeb) {
       print("🌐 Web détecté : Utilisation de MockDatabase (Mémoire)");
       return await _createMockDatabase();
@@ -40,15 +40,15 @@ class DatabaseHelper {
       String path = join(await getDatabasesPath(), 'essivi_offline.db');
       return await openDatabase(
         path,
-        version: 3, // ⚠️ INCRÉMENTÉ POUR FORCER LA MIGRATION
+        version: 3,  
         onCreate: _onCreate,
         onUpgrade: (db, oldVersion, newVersion) async {
-          // Migration v1 → v2
+           
           if (oldVersion < 2) {
             await db.execute("ALTER TABLE deliveries ADD COLUMN photo_url TEXT;");
             await db.execute("ALTER TABLE deliveries ADD COLUMN signature_url TEXT;");
           }
-          // Migration v2 → v3
+           
           if (oldVersion < 3) {
             await db.execute("ALTER TABLE deliveries ADD COLUMN client_name TEXT;");
             await db.execute("ALTER TABLE deliveries ADD COLUMN items_json TEXT;");
@@ -133,7 +133,7 @@ class DatabaseHelper {
   }
 }
 
-// Classe Mock pour simuler la base de données en cas d'erreur
+ 
 class MockDatabase implements Database {
   final List<Map<String, dynamic>> _deliveries = [];
   int _nextId = 1;
@@ -181,7 +181,7 @@ class MockDatabase implements Database {
     return 0;
   }
 
-  // Implémentations minimales des autres méthodes requises
+   
   @override
   dynamic noSuchMethod(Invocation invocation) {
     print("📝 Mock: Appel de méthode ${invocation.memberName}");

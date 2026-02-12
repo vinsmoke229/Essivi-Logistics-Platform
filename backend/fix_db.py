@@ -1,7 +1,7 @@
 from app import create_app, db
 from sqlalchemy import text
 
-# Créer l'application Flask (déballage du tuple : app, socketio)
+
 app_tuple = create_app()
 if isinstance(app_tuple, tuple):
     app = app_tuple[0]
@@ -9,7 +9,7 @@ else:
     app = app_tuple
 
 print("✅ Application Flask chargée")
-# Vérification de sécurité pour éviter une nouvelle erreur d'attribut si app est None
+
 if app and hasattr(app, 'config'):
     print(f"🔌 Base de données : {app.config['SQLALCHEMY_DATABASE_URI']}")
 else:
@@ -28,14 +28,14 @@ with app.app_context():
     ]
     
     try:
-        # Utiliser la connexion SQLAlchemy de Flask
+        
         with db.engine.connect() as conn:
             for q in queries:
                 try:
                     conn.execute(text(q))
                     print(f"✅ Exécuté : {q}")
                 except Exception as e:
-                    # Ignorer si la colonne existe déjà
+                    
                     print(f"⚠️ Note : {e}")
             
             conn.commit()

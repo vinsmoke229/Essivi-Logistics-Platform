@@ -26,7 +26,7 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
   @override
   void initState() {
     super.initState();
-    _captureGPS(); // Capture automatique au démarrage
+    _captureGPS();  
   }
 
   void _captureGPS() async {
@@ -46,11 +46,11 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
       return;
     }
 
-    // On envoie les coordonnées capturées par le téléphone
+     
     try {
       final success = await ref.read(dataServiceProvider).createClient(
         name: _nameController.text.trim(),
-        responsible: _responsibleController.text.trim(), // PASSAGE RÉEL
+        responsible: _responsibleController.text.trim(),  
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
         lat: _capturedPosition!.latitude,
@@ -89,7 +89,7 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // Indicateur GPS Vert/Rouge
+               
               Container(
                 padding: const EdgeInsets.all(12),
                 color: _capturedPosition != null ? Colors.green[50] : Colors.red[50],

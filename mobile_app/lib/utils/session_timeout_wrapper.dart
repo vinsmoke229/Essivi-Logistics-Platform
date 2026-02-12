@@ -39,7 +39,7 @@ class _SessionTimeoutWrapperState extends State<SessionTimeoutWrapper> {
       await authService.logout();
       if (!mounted) return;
       
-      // On redirige vers le login avec un message
+       
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
         (route) => false,

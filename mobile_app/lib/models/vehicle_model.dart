@@ -7,7 +7,7 @@ class VehicleModel {
   final String model;
   final String color;
   final int year;
-  final String status; // 'active', 'maintenance', 'inactive'
+  final String status;  
   final DateTime? assignedAt;
   final String? assignedBy;
 

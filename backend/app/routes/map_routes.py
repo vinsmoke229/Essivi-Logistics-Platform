@@ -14,7 +14,7 @@ def get_realtime_positions():
     try:
         positions = []
         
-        # Positions des agents actifs
+        
         agents = Agent.query.filter_by(is_active=True).all()
         for agent in agents:
             if agent.last_lat and agent.last_lng:
@@ -30,7 +30,7 @@ def get_realtime_positions():
                     'status': 'online' if agent.last_seen and (datetime.utcnow() - agent.last_seen).seconds < 300 else 'offline'
                 })
         
-        # Positions des clients avec GPS
+        
         clients = Client.query.filter(
             Client.gps_lat.isnot(None),
             Client.gps_lng.isnot(None)
@@ -46,7 +46,7 @@ def get_realtime_positions():
                 'address': client.address
             })
         
-        # Positions des livraisons du jour avec GPS
+        
         today = datetime.utcnow().date()
         deliveries = Delivery.query.filter(
             Delivery.date >= today,
@@ -56,7 +56,7 @@ def get_realtime_positions():
         
         for delivery in deliveries:
             try:
-                # Calcul sécurisé des volumes
+                
                 qty_vitale = sum(item.quantity or 0 for item in delivery.items if item.product and ('Vitale' in item.product.name or 'VITALE' in item.product.name))
                 qty_voltic = sum(item.quantity or 0 for item in delivery.items if item.product and ('Voltic' in item.product.name or 'VOLTIC' in item.product.name))
                 
@@ -130,7 +130,7 @@ def update_agent_position():
         if not agent:
             return jsonify({"msg": "Agent non trouvé"}), 404
         
-        # Mettre à jour la position
+        
         agent.last_lat = data.get('lat')
         agent.last_lng = data.get('lng')
         agent.last_seen = datetime.utcnow()
@@ -153,18 +153,18 @@ def update_agent_position():
 def get_delivery_zones():
     """Récupérer les zones de chalandise pour la carte"""
     try:
-        # Analyser les livraisons pour créer des zones de chaleur
+        
         deliveries = Delivery.query.filter(
             Delivery.gps_lat_delivery.isnot(None),
             Delivery.gps_lng_delivery.isnot(None),
             Delivery.date >= datetime.utcnow() - timedelta(days=30)
         ).all()
         
-        # Regrouper par zones (approximation avec grille simple)
+        
         zones = {}
         for delivery in deliveries:
             if delivery.gps_lat_delivery and delivery.gps_lng_delivery:
-                # Grille de 0.01 degré (~1km)
+                
                 lat_grid = round(delivery.gps_lat_delivery, 2)
                 lng_grid = round(delivery.gps_lng_delivery, 2)
                 zone_key = f"{lat_grid}_{lng_grid}"
@@ -183,7 +183,7 @@ def get_delivery_zones():
                 if delivery.client_id:
                     zones[zone_key]['clients'].add(delivery.client_id)
         
-        # Convertir en liste et calculer l'intensité
+        
         result = []
         max_deliveries = max([zone['delivery_count'] for zone in zones.values()]) if zones else 1
         
@@ -196,7 +196,7 @@ def get_delivery_zones():
                 'unique_clients': len(zone_data['clients']),
                 'total_amount': zone_data['total_amount'],
                 'intensity': intensity,
-                'radius': 500 + (intensity * 1000)  # Rayon entre 500m et 1500m
+                'radius': 500 + (intensity * 1000)  
             })
         
         return jsonify(result), 200
@@ -216,7 +216,7 @@ def optimize_delivery_route():
         if not agent_id or not delivery_ids:
             return jsonify({"msg": "Agent ID et livraisons requis"}), 400
         
-        # Récupérer les livraisons avec leurs positions
+        
         deliveries = Delivery.query.filter(
             Delivery.id.in_(delivery_ids),
             Delivery.gps_lat_delivery.isnot(None),
@@ -226,12 +226,12 @@ def optimize_delivery_route():
         if len(deliveries) != len(delivery_ids):
             return jsonify({"msg": "Certaines livraisons n'ont pas de coordonnées GPS"}), 400
         
-        # Récupérer la position de l'agent
+        
         agent = Agent.query.get(agent_id)
         if not agent or not agent.last_lat or not agent.last_lng:
             return jsonify({"msg": "Position de l'agent non disponible"}), 400
         
-        # Algorithme simple de plus proche voisin (TSP approximatif)
+        
         waypoints = [{
             'id': 'start',
             'lat': agent.last_lat,
@@ -244,7 +244,7 @@ def optimize_delivery_route():
         current_lng = agent.last_lng
         
         while remaining_deliveries:
-            # Trouver la livraison la plus proche
+            
             nearest = None
             min_distance = float('inf')
             
@@ -272,7 +272,7 @@ def optimize_delivery_route():
                 current_lng = nearest.gps_lng_delivery
                 remaining_deliveries.remove(nearest)
         
-        # Calculer les statistiques
+        
         total_distance = 0
         for i in range(len(waypoints) - 1):
             dist = ((waypoints[i+1]['lat'] - waypoints[i]['lat']) ** 2 + 
@@ -282,8 +282,8 @@ def optimize_delivery_route():
         return jsonify({
             'agent_id': agent_id,
             'waypoints': waypoints,
-            'total_distance_km': round(total_distance * 111, 2),  # Conversion approximative en km
-            'estimated_time_minutes': round(total_distance * 111 * 2),  # ~2min/km
+            'total_distance_km': round(total_distance * 111, 2),  
+            'estimated_time_minutes': round(total_distance * 111 * 2),  
             'delivery_count': len(deliveries),
             'total_amount': sum(d.total_amount for d in deliveries),
             'optimized_at': datetime.utcnow().isoformat()
@@ -297,10 +297,10 @@ def optimize_delivery_route():
 def get_delivery_heatmap():
     """Générer une carte de chaleur des livraisons"""
     try:
-        # Paramètres
+        
         days = request.args.get('days', 30, type=int)
         
-        # Récupérer les livraisons récentes avec filtres NULL robustes
+        
         since_date = datetime.utcnow() - timedelta(days=days)
         deliveries = Delivery.query.filter(
             Delivery.date >= since_date,
@@ -308,25 +308,25 @@ def get_delivery_heatmap():
             Delivery.gps_lng_delivery.isnot(None)
         ).all()
         
-        # Générer les points de chaleur
+        
         heat_points = []
         for delivery in deliveries:
             try:
-                # Sécurité : vérifier que items existe et n'est pas None
+                
                 if not delivery.items:
                     items_qty = 0
                 else:
-                    # Filtrer les items avec quantity NULL
+                    
                     items_qty = sum(
                         item.quantity or 0 
                         for item in delivery.items 
                         if item.quantity is not None
                     )
                 
-                # Sécurité : vérifier que total_amount n'est pas None
+                
                 total_amount = delivery.total_amount or 0
                 
-                # Vérifier que les coordonnées sont valides
+                
                 if delivery.gps_lat_delivery is None or delivery.gps_lng_delivery is None:
                     continue
                 
@@ -337,11 +337,11 @@ def get_delivery_heatmap():
                     'weight': 1 + items_qty / 10
                 })
             except Exception as e:
-                # Log l'erreur mais continue le traitement
+                
                 print(f"⚠️ Erreur traitement delivery {delivery.id}: {str(e)}")
                 continue
         
-        # Retourner un objet vide si aucun point
+        
         if not heat_points:
             return jsonify({
                 'points': [],
@@ -351,7 +351,7 @@ def get_delivery_heatmap():
                 'generated_at': datetime.utcnow().isoformat()
             }), 200
         
-        # Calculer l'intensité maximale
+        
         max_intensity = max(point['intensity'] for point in heat_points) if heat_points else 1.0
         
         return jsonify({
@@ -363,14 +363,14 @@ def get_delivery_heatmap():
         }), 200
         
     except Exception as e:
-        # Erreur globale : retourner un objet vide au lieu de crasher
+        
         print(f"❌ Erreur get_delivery_heatmap: {str(e)}")
         return jsonify({
             'points': [],
             'maxIntensity': 0,
             'total_points': 0,
             'error': str(e)
-        }), 200  # 200 au lieu de 500 pour éviter les erreurs côté client
+        }), 200  
 
 
 @map_bp.route('/zones-chalandise', methods=['GET', 'OPTIONS'])

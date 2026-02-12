@@ -194,7 +194,7 @@ class _NewOrderScreenState extends ConsumerState<NewOrderScreen> {
 
                 const SizedBox(height: 48),
                 
-                // SUBMIT BUTTON
+                 
                 SizedBox(
                   width: double.infinity,
                   child: Container(

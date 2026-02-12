@@ -13,7 +13,7 @@ class PerformanceScreen extends ConsumerStatefulWidget {
 class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
   List<dynamic> _deliveries = [];
   bool _isLoading = true;
-  String _selectedPeriod = '7j'; // 7j, 30j, 90j
+  String _selectedPeriod = '7j';  
   String? _errorMsg;
 
   @override
@@ -88,29 +88,29 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
       try {
         DateTime? deliveryDate;
         
-        // 1. Essayer avec le format ISO standard (Nouveau backend)
+         
         if (delivery['date_iso'] != null) {
           deliveryDate = DateTime.tryParse(delivery['date_iso']);
         }
         
-        // 2. Fallback sur created_at (Ancien format 'DD/MM/YYYY HH:MM')
+         
         if (deliveryDate == null) {
           final dateStr = delivery['created_at']?.toString() ?? '';
           final parts = dateStr.split(' ');
           if (parts.isNotEmpty) {
             final datePart = parts[0];
             if (datePart.contains('/')) {
-              // Format DD/MM/YYYY
+               
               final components = datePart.split('/');
               if (components.length == 3) {
                 deliveryDate = DateTime(
-                  int.parse(components[2]), // Year
-                  int.parse(components[1]), // Month
-                  int.parse(components[0]), // Day
+                  int.parse(components[2]),  
+                  int.parse(components[1]),  
+                  int.parse(components[0]),  
                 );
               }
             } else if (datePart.contains('-')) {
-              // Format YYYY-MM-DD
+               
               final components = datePart.split('-');
               if (components.length == 3) {
                 deliveryDate = DateTime(
@@ -124,7 +124,7 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
         }
 
         if (deliveryDate != null) {
-          // Normaliser pour ignorer l'heure dans la comparaison
+           
           final justDate = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
           final justStart = DateTime(startDate.year, startDate.month, startDate.day);
           return justDate.isAfter(justStart) || justDate.isAtSameMomentAs(justStart);
@@ -163,12 +163,12 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
       try {
         DateTime? deliveryDate;
         
-        // 1. Essayer avec le format ISO standard
+         
         if (delivery['date_iso'] != null) {
           deliveryDate = DateTime.tryParse(delivery['date_iso']);
         }
         
-        // 2. Fallback sur parsing manuel (similaire à _getFilteredDeliveries)
+         
         if (deliveryDate == null) {
           final dateStr = delivery['created_at']?.toString() ?? '';
           final parts = dateStr.split(' ');
@@ -197,22 +197,22 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
         }
 
         if (deliveryDate != null) {
-          // Clé de groupement YYYY-MM-DD pour un tri correct par date
+           
           final dateKey = "${deliveryDate.year.toString().padLeft(4, '0')}-${deliveryDate.month.toString().padLeft(2, '0')}-${deliveryDate.day.toString().padLeft(2, '0')}";
           final amount = (delivery['total_amount'] as num?)?.toDouble() ?? 0;
           dailyData[dateKey] = (dailyData[dateKey] ?? 0) + amount;
         }
       } catch (e) {
-        // Ignorer les erreurs
+         
       }
     }
     
-    // Trier les dates chronologiquement (YYYY-MM-DD le permet naturellement)
+     
     final sortedDates = dailyData.keys.toList()..sort();
     
     return sortedDates.map((date) {
       final amount = dailyData[date] ?? 0;
-      // date est YYYY-MM-DD
+       
       
       return BarChartGroupData(
         x: sortedDates.indexOf(date),
@@ -317,22 +317,22 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // PÉRIODE SELECTOR
+                       
                       _buildPeriodSelector(),
                       
                       const SizedBox(height: 24),
                       
-                      // KPI CARDS
+                       
                       _buildKPICards(stats),
                       
                       const SizedBox(height: 24),
                       
-                      // VENTES PAR JOUR GRAPH
+                       
                       _buildDailySalesChart(),
                       
                       const SizedBox(height: 24),
                       
-                      // PRODUITS DISTRIBUTION
+                       
                       Row(
                         children: [
                           Expanded(child: _buildProductDistributionChart()),
@@ -529,7 +529,7 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
                         final index = value.toInt();
                         if (index < 0 || index >= dailyData.length) return const Text('');
                         
-                        // Récupérer la date depuis les données filtrées
+                         
                         final filtered = _getFilteredDeliveries();
                         if (filtered.isEmpty) return const Text('');
                         
@@ -550,7 +550,7 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
                             }
                           }
                         } catch (e) {
-                          // Ignorer les erreurs
+                           
                         }
                         
                         return const Text('');

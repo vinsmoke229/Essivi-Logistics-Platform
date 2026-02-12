@@ -12,7 +12,7 @@ def create_stock_tables():
     with app.app_context():
         print("🏗️ Création des tables de stock...")
         
-        # Créer les tables manuellement
+        
         db.create_all()
         
         print("✅ Tables créées avec succès!")

@@ -24,21 +24,21 @@ class ProfileService {
     };
   }
 
-  // Mettre à jour la photo de profil
+   
   Future<bool> updateProfilePhoto(File imageFile) async {
     try {
       final headers = await _getMultipartHeaders();
       
-      // Créer une requête multipart
+       
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$_baseUrl/agents/profile/photo'),
       );
       
-      // Ajouter les headers
+       
       request.headers.addAll(headers);
       
-      // Ajouter l'image
+       
       final imageBytes = await imageFile.readAsBytes();
       final multipartFile = http.MultipartFile.fromBytes(
         'profile_photo',
@@ -47,13 +47,13 @@ class ProfileService {
       );
       request.files.add(multipartFile);
       
-      // Envoyer la requête
+       
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
       final responseData = json.decode(responseBody);
       
       if (response.statusCode == 200) {
-        // Sauvegarder l'URL de la photo localement
+         
         final prefs = await SharedPreferences.getInstance();
         if (responseData['photo_url'] != null) {
           await prefs.setString('profile_photo_url', responseData['photo_url']);
@@ -69,7 +69,7 @@ class ProfileService {
     }
   }
 
-  // Récupérer les informations du profil
+   
   Future<Map<String, dynamic>?> getProfileInfo() async {
     try {
       final headers = await _getHeaders();
@@ -90,7 +90,7 @@ class ProfileService {
     }
   }
 
-  // Mettre à jour les informations du profil
+   
   Future<bool> updateProfileInfo({
     String? name,
     String? phone,
@@ -117,25 +117,25 @@ class ProfileService {
     }
   }
 
-  // Récupérer l'URL de la photo de profil sauvegardée localement
+   
   Future<String?> getLocalProfilePhotoUrl() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('profile_photo_url');
   }
 
-  // Sauvegarder localement le chemin de la photo
+   
   Future<void> saveLocalProfilePhotoPath(String filePath) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('local_profile_photo_path', filePath);
   }
 
-  // Récupérer le chemin local de la photo
+   
   Future<String?> getLocalProfilePhotoPath() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('local_profile_photo_path');
   }
 
-  // Supprimer la photo de profil locale
+   
   Future<void> clearLocalProfilePhoto() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('profile_photo_url');

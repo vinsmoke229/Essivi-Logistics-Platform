@@ -1,8 +1,8 @@
 from app import create_app, db
 from sqlalchemy import text
-from app.models.sql_models import Product, DeliveryItem, OrderItem, StockItem # Assure que les modèles sont chargés
+from app.models.sql_models import Product, DeliveryItem, OrderItem, StockItem 
 
-# Création de l'app
+
 app_obj = create_app()
 if isinstance(app_obj, tuple):
     app = app_obj[0]
@@ -14,20 +14,20 @@ def force_update():
     
     with app.app_context():
         try:
-            # 1. Création des nouvelles tables (delivery_items, order_items, etc.)
+            
             print("📦 Création des tables manquantes via db.create_all()...")
             db.create_all()
             print("✅ Tables créées (si elles n'existaient pas).")
 
-            # 2. Ajout manuel des colonnes si db.create_all n'a pas suffi (pour les tables existantes)
-            # On vérifie/ajoute la colonne delivery_items s'il y a un doute, mais db.create_all le fait pour les nouvelles tables.
-            # Pour les anciennes tables (deliveries), on veut peut-être SUPPRIMER les colonnes, mais on va d'abord migrer.
+            
+            
+            
             
             conn = db.engine.connect()
             trans = conn.begin()
             
             try:
-                # 3. Insertion des Produits de base (Verna !)
+                
                 print("🛒 Vérification des produits...")
                 products_to_add = [
                     {'name': 'Vitale', 'price': 500.0},
@@ -42,7 +42,7 @@ def force_update():
                         ON CONFLICT (name) DO NOTHING
                     """), p_data)
                     
-                    # Création Stock initial si absent
+                    
                     conn.execute(text("""
                         INSERT INTO stock_items (product_id, location, total_stock, available_stock, reserved_stock, unit_price, unit, low_stock_threshold, last_restock_date, created_at, updated_at)
                         SELECT id, 'Entrepôt Principal', 1000, 1000, 0, :price, 'unités', 50, NOW(), NOW(), NOW()
@@ -52,16 +52,16 @@ def force_update():
                 
                 print("✅ Produits Vitale, Voltic et Verna assurés.")
 
-                # 4. Migration des Données (Anciennes colonnes -> Nouvelle table)
-                # On vérifie si la colonne quantity_vitale existe encore
+                
+                
                 print("🔄 Migration des données (Vitale/Voltic)...")
                 
-                # Check column existence method (robust)
+                
                 result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='deliveries' AND column_name='quantity_vitale'"))
                 if result.scalar():
                     print("   ➜ Colonnes héritées détectées. Migration en cours...")
                     
-                    # Migrer Livraisons -> DeliveryItems
+                    
                     conn.execute(text("""
                         INSERT INTO delivery_items (delivery_id, product_id, quantity)
                         SELECT d.id, p.id, d.quantity_vitale
@@ -81,7 +81,7 @@ def force_update():
                     """))
                     print("   ✅ Données Livraisons migrées.")
                     
-                    # 5. Nettoyage des colonnes obsolètes (Optionnel, activé ici pour propreté)
+                    
                     print("🧹 Suppression des anciennes colonnes...")
                     conn.execute(text("ALTER TABLE deliveries DROP COLUMN IF EXISTS quantity_vitale"))
                     conn.execute(text("ALTER TABLE deliveries DROP COLUMN IF EXISTS quantity_voltic"))
@@ -95,7 +95,7 @@ def force_update():
                 else:
                     print("   ➜ Aucune migration nécessaire (colonnes déjà absentes).")
 
-                # Validation
+                
                 trans.commit()
                 print("🎉 SUCCÈS : Base de données à jour et propre !")
                 

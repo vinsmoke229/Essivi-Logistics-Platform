@@ -74,7 +74,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         final token = resData['access_token'] ?? '';
         print("✅ TOKEN REÇU APRÈS INSCRIPTION: $token");
         
-        // On construit un UserModel à partir du retour (access_token, role, name, identifier)
+         
         return UserModel(
           id: resData['id']?.toString() ?? '0',
           name: resData['name'] ?? name,

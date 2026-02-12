@@ -26,7 +26,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     
     print("🔍 DEBUG - Token sauvegardé dans SharedPreferences");
     
-    // Vérification immédiate
+     
     final savedToken = sharedPreferences.getString(AppConstants.tokenKey);
     print("🔍 DEBUG - Vérification token sauvegardé: ${savedToken != null ? 'OUI' : 'NON'}");
     print("🔍 DEBUG - Token vérifié (premiers 20): ${savedToken?.substring(0, 20) ?? 'NULL'}");

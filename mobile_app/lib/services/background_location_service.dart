@@ -43,7 +43,7 @@ class BackgroundLocationService {
   static void onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
 
-    // ⚠️ CRITICAL: Must show notification IMMEDIATELY for Android 14+
+     
     if (service is AndroidServiceInstance) {
       service.on('setAsForeground').listen((event) {
         service.setAsForegroundService();
@@ -53,7 +53,7 @@ class BackgroundLocationService {
         service.setAsBackgroundService();
       });
       
-      // ✅ Force notification display right away
+       
       await service.setForegroundNotificationInfo(
         title: "Suivi GPS Actif",
         content: "Service de localisation en cours...",
@@ -64,10 +64,10 @@ class BackgroundLocationService {
       service.stopSelf();
     });
 
-    // Timer périodique (60 secondes)
+     
     Timer.periodic(const Duration(seconds: 60), (timer) async {
       try {
-        // Double check permission before calling getCurrentPosition to avoid immediate crash on some Android versions
+         
         LocationPermission permission = await Geolocator.checkPermission();
         if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
           print("Background location skipped: Permissions missing.");
@@ -82,12 +82,12 @@ class BackgroundLocationService {
           );
         } catch (e) {
           print("⚠️ Erreur récupération GPS (non bloquant): $e");
-          return; // On sort sans crasher
+          return;  
         }
 
         if (position == null) return;
 
-        // 🛡️ SÉCURITÉ : Ignorer les coordonnées à 0.0 (souvent erreur init GPS)
+         
         if (position.latitude == 0.0 && position.longitude == 0.0) {
           print("GPS FAIL: Coordonnées nulles ou à 0. Envoi annulé.");
           return;

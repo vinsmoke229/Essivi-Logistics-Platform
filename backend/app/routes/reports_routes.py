@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt
 from app import db
 from app.models.sql_models import Delivery, Order, Client, Agent, StockMovement, Product, DeliveryItem
 from datetime import datetime, timedelta
-# import pandas as pd # Removed to fix crash
+
 import io
 import csv
 from openpyxl import Workbook
@@ -17,7 +17,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/api/reports')
 
-# --- 1. EXPORT EXCEL/CSV ---
+
 
 @reports_bp.route('/export/excel', methods=['POST'])
 @jwt_required()
@@ -29,18 +29,18 @@ def export_excel():
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         
-        # Créer le classeur Excel
+        
         wb = Workbook()
         ws = wb.active
         ws.title = f"Rapport_{report_type}"
         
-        # Styles
+        
         header_font = Font(bold=True, color="FFFFFF")
         header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
         header_alignment = Alignment(horizontal="center", vertical="center")
         
         if report_type == 'deliveries':
-            # Export des livraisons
+            
             query = Delivery.query
             
             if start_date:
@@ -50,7 +50,7 @@ def export_excel():
                 
             deliveries = query.all()
             
-            # En-têtes
+            
             headers = ['ID', 'Client', 'Agent', 'Date', 'Statut', 'Produits', 'Montant', 'Notes']
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=1, column=col, value=header)
@@ -58,14 +58,14 @@ def export_excel():
                 cell.fill = header_fill
                 cell.alignment = header_alignment
             
-            # Données
+            
             for row, delivery in enumerate(deliveries, 2):
                 ws.cell(row=row, column=1, value=str(delivery.id))
                 ws.cell(row=row, column=2, value=getattr(delivery.client, 'name', 'Inconnu') if delivery.client else 'Inconnu')
                 ws.cell(row=row, column=3, value=getattr(delivery.agent, 'full_name', 'Non assigné') if delivery.agent else 'Non assigné')
                 ws.cell(row=row, column=4, value=delivery.created_at.strftime('%Y-%m-%d %H:%M') if delivery.created_at else '--')
                 ws.cell(row=row, column=5, value=delivery.status or 'N/A')
-                # Formatage des produits
+                
                 products_str = ", ".join([f"{item.product.name} ({item.quantity})" for item in delivery.items]) if delivery.items else "Aucun"
                 
                 ws.cell(row=row, column=6, value=products_str)
@@ -73,7 +73,7 @@ def export_excel():
                 ws.cell(row=row, column=8, value='') 
         
         elif report_type == 'stock':
-            # Export des mouvements de stock
+            
             query = StockMovement.query
             
             if start_date:
@@ -83,7 +83,7 @@ def export_excel():
                 
             movements = query.all()
             
-            # En-têtes
+            
             headers = ['ID', 'Produit', 'Type', 'Quantité', 'Référence', 'Agent', 'Date', 'Notes']
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=1, column=col, value=header)
@@ -91,7 +91,7 @@ def export_excel():
                 cell.fill = header_fill
                 cell.alignment = header_alignment
             
-            # Données
+            
             for row, movement in enumerate(movements, 2):
                 ws.cell(row=row, column=1, value=str(movement.id))
                 ws.cell(row=row, column=2, value=movement.stock_item.product.name if movement.stock_item and movement.stock_item.product else 'Inconnu')
@@ -103,10 +103,10 @@ def export_excel():
                 ws.cell(row=row, column=8, value=movement.notes or '')
         
         elif report_type == 'clients':
-            # Export des clients
+            
             clients = Client.query.all()
             
-            # En-têtes
+            
             headers = ['ID', 'Nom', 'Téléphone', 'Email', 'Adresse', 'Date création', 'Total commandes']
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=1, column=col, value=header)
@@ -114,7 +114,7 @@ def export_excel():
                 cell.fill = header_fill
                 cell.alignment = header_alignment
             
-            # Données
+            
             for row, client in enumerate(clients, 2):
                 ws.cell(row=row, column=1, value=str(client.id))
                 ws.cell(row=row, column=2, value=client.name)
@@ -124,7 +124,7 @@ def export_excel():
                 ws.cell(row=row, column=6, value=client.created_at.strftime('%Y-%m-%d'))
                 ws.cell(row=row, column=7, value=len(client.orders) if hasattr(client, 'orders') else 0)
         
-        # Ajuster la largeur des colonnes
+        
         for column in ws.columns:
             max_length = 0
             column_letter = get_column_letter(column[0].column)
@@ -137,7 +137,7 @@ def export_excel():
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[column_letter].width = adjusted_width
         
-        # Sauvegarder en mémoire
+        
         excel_file = io.BytesIO()
         wb.save(excel_file)
         excel_file.seek(0)
@@ -190,7 +190,7 @@ def export_pdf():
             
             deliveries = query.all()
             
-            # En-têtes du tableau
+            
             table_data = [['ID', 'Client', 'Agent', 'Date', 'Statut', 'Produits', 'Montant']]
             
             for d in deliveries:
@@ -202,7 +202,7 @@ def export_pdf():
                 if d.agent:
                     agent_name = d.agent.full_name
 
-                # Formatage dynamique des produits
+                
                 products_str = "\n".join([f"- {item.product.name}: {item.quantity}" for item in d.items])
                 if not products_str: products_str = "--"
 
@@ -216,7 +216,7 @@ def export_pdf():
                     f"{getattr(d, 'total_amount', 0):,.0f} F"
                 ])
                 
-            # Créer le tableau ReportLab
+            
             t = Table(table_data, repeatRows=1)
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4F81BD")),
@@ -260,7 +260,7 @@ def export_csv():
         writer = csv.writer(output)
         
         if report_type == 'deliveries':
-            # Export des livraisons
+            
             query = Delivery.query
             
             if start_date:
@@ -270,15 +270,15 @@ def export_csv():
                 
             deliveries = query.all()
             
-            # En-têtes
+            
             headers = ['ID', 'Client', 'Agent', 'Date', 'Statut', 'Produits', 'Montant', 'Notes']
             writer.writerow(headers)
             
-            # Données
+            
             for delivery in deliveries:
                 client_name = delivery.client.name if (hasattr(delivery, 'client') and delivery.client) else 'Inconnu'
                 agent_name = delivery.agent.full_name if (hasattr(delivery, 'agent') and delivery.agent) else 'Non assigné'
-                # Formatage des produits
+                
                 products_str = ", ".join([f"{item.product.name} x{item.quantity}" for item in delivery.items]) if delivery.items else ""
 
                 writer.writerow([
@@ -293,7 +293,7 @@ def export_csv():
                 ])
         
         elif report_type == 'stock':
-            # Export des mouvements de stock
+            
             query = StockMovement.query
             
             if start_date:
@@ -303,11 +303,11 @@ def export_csv():
                 
             movements = query.all()
             
-            # En-têtes
+            
             headers = ['ID', 'Produit', 'Type', 'Quantité', 'Référence', 'Agent', 'Date', 'Notes']
             writer.writerow(headers)
             
-            # Données
+            
             for movement in movements:
                 writer.writerow([
                     movement.id,
@@ -333,7 +333,7 @@ def export_csv():
     except Exception as e:
         return jsonify({"msg": f"Erreur export CSV: {str(e)}"}), 500
 
-# --- 2. RAPPORTS PERSONNALISÉS ---
+
 
 @reports_bp.route('/custom', methods=['POST'])
 @jwt_required()
@@ -360,7 +360,7 @@ def generate_custom_report():
         }
         
         if report_type == 'sales_summary':
-            # Rapport de ventes résumé
+            
             query = db.session.query(
                 Delivery.status,
                 db.func.count(Delivery.id).label('count'),
@@ -389,7 +389,7 @@ def generate_custom_report():
                 })
         
         elif report_type == 'agent_performance':
-            # Performance des agents
+            
             query = db.session.query(
                 Agent.id,
                 Agent.full_name,
@@ -416,14 +416,12 @@ def generate_custom_report():
                 })
         
         elif report_type == 'product_analysis':
-            # Analyse dynamique des produits par ventes réelles (DeliveryItems)
+            
             query = db.session.query(
                 Product.name,
                 db.func.sum(DeliveryItem.quantity).label('total_quantity'),
                 db.func.sum(DeliveryItem.quantity * Product.price).label('revenue_generated')
-            ).join(DeliveryItem, Product.id == DeliveryItem.product_id)\
-             .join(Delivery, DeliveryItem.delivery_id == Delivery.id)\
-             .filter(Delivery.status == 'completed')
+            ).join(DeliveryItem, Product.id == DeliveryItem.product_id)             .join(Delivery, DeliveryItem.delivery_id == Delivery.id)             .filter(Delivery.status == 'completed')
 
             if start_date:
                 query = query.filter(Delivery.date >= datetime.fromisoformat(start_date))
@@ -441,35 +439,32 @@ def generate_custom_report():
         
         return jsonify(result), 200
     except Exception as e:
-        return jsonify({"msg": f"Erreur rapport: {str(e)}"}), 200 # Return 200 with error msg to avoid crash
+        return jsonify({"msg": f"Erreur rapport: {str(e)}"}), 200 
 
 
-# --- 3. GRAPHIQUES INTERACTIFS ---
+
 
 @reports_bp.route('/charts/revenue', methods=['GET'])
 @jwt_required()
 def get_revenue_chart():
     """Données pour graphique des revenus (Dynamic & Robust)"""
     try:
-        period = request.args.get('period', 'month')  # day, week, month
+        period = request.args.get('period', 'month')  
         
         if period == 'day':
-            # Revenus par jour (30 derniers jours)
+            
             start_date = datetime.utcnow() - timedelta(days=30)
             query = db.session.query(
                 func.date(Delivery.created_at).label('date_label'),
                 func.sum(Delivery.total_amount).label('revenue')
-            ).filter(Delivery.created_at >= start_date, Delivery.status == 'completed')\
-             .group_by(func.date(Delivery.created_at))
+            ).filter(Delivery.created_at >= start_date, Delivery.status == 'completed')             .group_by(func.date(Delivery.created_at))
         else:
-            # Revenus par mois (Par défaut)
+            
             query = db.session.query(
                 extract('month', Delivery.created_at).label('month'),
                 extract('year', Delivery.created_at).label('year'),
                 func.sum(Delivery.total_amount).label('revenue')
-            ).filter(Delivery.status == 'completed')\
-             .group_by(extract('year', Delivery.created_at), extract('month', Delivery.created_at))\
-             .order_by(extract('year', Delivery.created_at), extract('month', Delivery.created_at))
+            ).filter(Delivery.status == 'completed')             .group_by(extract('year', Delivery.created_at), extract('month', Delivery.created_at))             .order_by(extract('year', Delivery.created_at), extract('month', Delivery.created_at))
         
         data = query.all()
         
@@ -532,10 +527,10 @@ def get_delivery_status_chart():
                 'label': 'Nombre de livraisons',
                 'data': [row.count for row in data],
                 'backgroundColor': [
-                    'rgba(34, 197, 94, 0.8)',   # delivered - vert
-                    'rgba(59, 130, 246, 0.8)',   # in_progress - bleu
-                    'rgba(251, 146, 60, 0.8)',  # pending - orange
-                    'rgba(239, 68, 68, 0.8)',   # cancelled - rouge
+                    'rgba(34, 197, 94, 0.8)',   
+                    'rgba(59, 130, 246, 0.8)',   
+                    'rgba(251, 146, 60, 0.8)',  
+                    'rgba(239, 68, 68, 0.8)',   
                 ],
                 'borderWidth': 1
             }]
@@ -553,17 +548,12 @@ def get_top_products_chart():
     try:
         limit = int(request.args.get('limit', 10))
         
-        # Top produits basé sur DeliveryItem (Ventes réelles)
+        
         query = db.session.query(
             Product.name,
             db.func.sum(DeliveryItem.quantity).label('total_quantity'),
             db.func.sum(DeliveryItem.quantity * Product.price).label('total_revenue')
-        ).join(DeliveryItem, Product.id == DeliveryItem.product_id)\
-         .join(Delivery, DeliveryItem.delivery_id == Delivery.id)\
-         .filter(Delivery.status == 'completed')\
-         .group_by(Product.id, Product.name)\
-         .order_by(db.func.sum(DeliveryItem.quantity).desc())\
-         .limit(limit)
+        ).join(DeliveryItem, Product.id == DeliveryItem.product_id)         .join(Delivery, DeliveryItem.delivery_id == Delivery.id)         .filter(Delivery.status == 'completed')         .group_by(Product.id, Product.name)         .order_by(db.func.sum(DeliveryItem.quantity).desc())         .limit(limit)
         
         data = query.all()
         

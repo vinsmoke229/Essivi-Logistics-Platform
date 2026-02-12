@@ -13,16 +13,16 @@ def send_daily_digest(app):
     with app.app_context():
         today = datetime.utcnow().date()
         
-        # 1. Calcul des statistiques du jour
+        
         deliveries = Delivery.query.filter(Delivery.date >= today).all()
         total_revenue = sum(d.total_amount or 0 for d in deliveries)
         
-        # Somme dynamique des articles
+        
         total_items = 0
         for d in deliveries:
             total_items += sum(item.quantity for item in d.items)
         
-        # 2. Top Livreur
+        
         top_agent_data = db.session.query(
             Delivery.agent_id, 
             sa.func.sum(Delivery.total_amount).label('revenue')
@@ -34,7 +34,7 @@ def send_daily_digest(app):
             if agent:
                 top_agent_name = f"{agent.full_name} ({top_agent_data.revenue:,.0f} F)"
 
-        # 3. Récupérer les admins
+        
         admins = User.query.filter_by(role='admin').all()
         admin_emails = [a.email for a in admins if a.email]
         
@@ -42,7 +42,7 @@ def send_daily_digest(app):
             print("Aucun administrateur trouvé pour l'envoi du rapport.")
             return
 
-        # 4. Préparation du contenu HTML
+        
         subject = f"📊 Rapport Journalier ESSIVI - {today.strftime('%d/%m/%Y')}"
         
         html_content = f"""
@@ -65,7 +65,7 @@ def send_daily_digest(app):
         </html>
         """
 
-        # 5. Envoi
+        
         for email in admin_emails:
             try:
                 notification_service.send_email(email, subject, html_content)
@@ -78,7 +78,7 @@ def init_scheduler(app):
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         scheduler.init_app(app)
         
-        # Planifier l'envoi tous les jours à 20:00 (ajustable)
+        
         @scheduler.task('cron', id='do_daily_report', hour=20, minute=0)
         def daily_report_task():
             send_daily_digest(app)

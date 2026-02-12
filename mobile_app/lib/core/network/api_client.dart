@@ -25,9 +25,9 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (DioException e, handler) {
-           // Handle 401 Unauthorized globally if needed
+            
            if (e.response?.statusCode == 401) {
-             // Redirect to login or clear token logic could go here
+              
            }
            return handler.next(e);
         },

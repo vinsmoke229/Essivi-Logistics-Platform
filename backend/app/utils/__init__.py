@@ -1,4 +1,4 @@
-# Utils package initialization
+
 from .structured_logger import (
     logger, 
     log_function_call, 

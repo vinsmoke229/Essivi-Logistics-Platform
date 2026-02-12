@@ -54,7 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Profile
+             
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 40),
@@ -123,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   
                   const SizedBox(height: 40),
                   
-                  // Logout Button
+                   
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(

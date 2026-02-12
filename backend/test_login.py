@@ -2,7 +2,7 @@ import requests
 
 url = "http://127.0.0.1:5000/api/auth/login"
 
-# Données de connexion correctes
+
 payload = {
     "identifier": "admin@essivi.com",
     "password": "admin123"

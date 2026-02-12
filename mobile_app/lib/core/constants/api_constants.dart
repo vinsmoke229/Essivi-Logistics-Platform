@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 
 class ApiConstants {
-  // CONFIGURATION IP PC (IP Locale Fixe)
+   
   static const String pcIp = '192.168.162.162'; 
 
   static String get baseUrl {

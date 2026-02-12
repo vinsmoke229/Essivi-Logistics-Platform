@@ -22,7 +22,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
     _checkConnectivity();
     _checkPendingSync();
     
-    // Vérifier toutes les 30 secondes
+     
     Timer.periodic(const Duration(seconds: 30), (_) {
       _checkConnectivity();
       _checkPendingSync();
@@ -45,7 +45,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
         _pendingSync = unsynced.length;
       });
     } catch (e) {
-      // Erreur silencieuse
+       
     }
   }
 

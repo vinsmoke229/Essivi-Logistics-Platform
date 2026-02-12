@@ -5,25 +5,25 @@ from app import db
 from datetime import datetime
 import json
 
-# Créer l'instance SocketIO
+
 socketio = SocketIO(cors_allowed_origins="*", async_mode='threading')
 
 notifications_bp = Blueprint('notifications', __name__, url_prefix='/api/notifications')
 
-# Dictionnaire pour stocker les utilisateurs connectés
+
 connected_users = {}
 
 @socketio.on('connect')
 def handle_connect():
     """Gérer la connexion d'un utilisateur"""
     try:
-        # Récupérer le token depuis la requête
+        
         token = request.args.get('token')
         if not token:
             emit('error', {'msg': 'Token manquant'})
             return False
         
-        # Valider le token et récupérer les infos utilisateur
+        
         from flask_jwt_extended import decode_token
         try:
             decoded = decode_token(token)
@@ -34,7 +34,7 @@ def handle_connect():
             emit('error', {'msg': 'Token invalide'})
             return False
         
-        # Stocker les infos de connexion
+        
         connected_users[request.sid] = {
             'user_id': user_id,
             'user_type': user_type,
@@ -42,7 +42,7 @@ def handle_connect():
             'connected_at': datetime.utcnow()
         }
         
-        # Rejoindre la room selon le rôle
+        
         if role == 'admin':
             join_room('admins')
         elif role == 'manager':
@@ -50,7 +50,7 @@ def handle_connect():
         elif role == 'agent':
             join_room('agents')
         
-        # Rejoindre la room personnelle
+        
         join_room(f'user_{user_id}')
         
         emit('connected', {
@@ -96,7 +96,7 @@ def handle_leave_room(data):
     except Exception as e:
         emit('error', {'msg': f'Erreur: {str(e)}'})
 
-# --- FONCTIONS UTILITAIRES POUR LES NOTIFICATIONS ---
+
 
 def notify_low_stock(product_info):
     """Notifier tous les admins du stock bas"""
@@ -137,11 +137,11 @@ def notify_delivery_status_change(delivery_info):
         'priority': 'medium'
     }
     
-    # Notifier l'agent concerné
+    
     if delivery_info.get('agent_id'):
         socketio.emit('notification', notification, room=f"user_{delivery_info['agent_id']}")
     
-    # Notifier aussi les admins
+    
     socketio.emit('notification', notification, room='admins')
     print(f"📢 Notification statut livraison envoyée")
 
@@ -156,7 +156,7 @@ def notify_agent_position_update(agent_info):
         'priority': 'low'
     }
     
-    # Notifier les admins et managers de la position
+    
     socketio.emit('agent_position', notification, room='admins')
     socketio.emit('agent_position', notification, room='managers')
     print(f"📢 Notification position agent envoyée")
@@ -172,11 +172,11 @@ def notify_system_alert(alert_info):
         'priority': 'critical'
     }
     
-    # Envoyer à tout le monde
+    
     socketio.emit('system_alert', notification)
     print(f"📢 Alerte système envoyée à tous les utilisateurs")
 
-# --- ROUTES HTTP POUR LES NOTIFICATIONS ---
+
 
 @notifications_bp.route('/send', methods=['POST'])
 @jwt_required()
@@ -185,7 +185,7 @@ def send_notification():
     try:
         data = request.get_json()
         notification_type = data.get('type')
-        target_role = data.get('target_role')  # 'admin', 'manager', 'agent', 'all'
+        target_role = data.get('target_role')  
         message = data.get('message')
         title = data.get('title')
         
@@ -198,7 +198,7 @@ def send_notification():
             'priority': data.get('priority', 'medium')
         }
         
-        # Envoyer selon la cible
+        
         if target_role == 'all':
             socketio.emit('notification', notification)
         elif target_role == 'admin':
@@ -208,7 +208,7 @@ def send_notification():
         elif target_role == 'agent':
             socketio.emit('notification', notification, room='agents')
         else:
-            # Utilisateur spécifique
+            
             user_id = data.get('user_id')
             if user_id:
                 socketio.emit('notification', notification, room=f"user_{user_id}")
@@ -255,8 +255,8 @@ def get_connected_users():
 def get_notification_history():
     """Historique des notifications (si stocké en base)"""
     try:
-        # Pour l'instant, retourner un historique simulé
-        # Dans une vraie implémentation, on stockerait les notifications en base
+        
+        
         
         history = [
             {

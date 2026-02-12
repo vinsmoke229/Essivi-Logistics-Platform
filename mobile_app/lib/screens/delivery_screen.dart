@@ -50,12 +50,12 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       if (mounted) {
         setState(() {
           _distanceInMeters = dist;
-          _currentPosition = pos; // Store current position
-          // 2m tolerance as per specifications
+          _currentPosition = pos;  
+           
           _canValidate = dist <= 2.0; 
         });
         
-        // Update Agent Location remotely (Fire and forget)
+         
         ref.read(agentProvider.notifier).updateLocation(pos.latitude, pos.longitude);
       }
     });
@@ -121,7 +121,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   }
 
   Future<void> _submitDelivery() async {
-    // Validation checks
+     
     if (_image == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Veuillez prendre une photo de livraison"))
@@ -138,19 +138,19 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
 
     setState(() => _isLoading = true);
     try {
-      // Use current position if available, otherwise fallback to mission position
+       
       final gpsLat = _currentPosition?.latitude ?? widget.missionEntity.gpsLat;
       final gpsLng = _currentPosition?.longitude ?? widget.missionEntity.gpsLng;
       
-      // Check connectivity
+       
       final hiveService = HiveService();
       await hiveService.init();
       final isOnline = await hiveService.isOnline();
       
       if (isOnline) {
-        // Try to send online first
+         
         try {
-          // Convert signature to base64 for now (in real implementation, upload to server)
+           
           final signatureBytes = await _sig.toPngBytes();
           final signatureBase64 = signatureBytes != null 
               ? 'data:image/png;base64,${base64Encode(signatureBytes)}'
@@ -163,8 +163,8 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             amount: double.tryParse(_amountController.text) ?? widget.missionEntity.totalAmount,
             gpsLat: gpsLat,
             gpsLng: gpsLng,
-            photoUrl: _image?.path, // TODO: Implement actual upload
-            signatureUrl: signatureBase64, // TODO: Implement actual upload
+            photoUrl: _image?.path,  
+            signatureUrl: signatureBase64,  
           );
 
           if (success && mounted) {
@@ -179,7 +179,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         }
       }
       
-      // Save offline if online failed or no connectivity
+       
       final signatureBytes = await _sig.toPngBytes();
       final signatureData = signatureBytes != null ? base64Encode(signatureBytes) : null;
       
@@ -259,7 +259,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             TextField(controller: _amountController, decoration: const InputDecoration(labelText: "Montant à percevoir")),
             const SizedBox(height: 20),
             
-            // Photo Section
+             
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -343,7 +343,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
             ),
             const SizedBox(height: 20),
             
-            // Signature Section
+             
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(

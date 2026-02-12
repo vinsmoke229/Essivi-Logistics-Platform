@@ -86,7 +86,7 @@ class ClientNotifier extends StateNotifier<ClientState> {
         instructions: instructions,
       );
       if (success) {
-        await refresh(); // Refresh everything
+        await refresh();  
       }
       state = state.copyWith(isLoading: false);
       return success;

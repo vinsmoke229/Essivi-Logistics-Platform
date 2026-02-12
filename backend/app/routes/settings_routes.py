@@ -13,7 +13,7 @@ import traceback
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/api/settings')
 
-# Configuration des dossiers d'upload
+
 UPLOAD_FOLDER = 'uploads/system'
 BACKUP_FOLDER = 'uploads/backups'
 for folder in [UPLOAD_FOLDER, BACKUP_FOLDER]:
@@ -119,7 +119,7 @@ def get_logo_file(filename):
     if os.path.exists(filepath): return send_file(filepath)
     return jsonify({"msg": "Non trouvé"}), 404
 
-# --- PRICING & NOTIFICATIONS ---
+
 @settings_bp.route('/pricing', methods=['GET'])
 @jwt_required()
 def get_pricing():
@@ -130,7 +130,7 @@ def get_pricing():
         'unit': settings.get('delivery_unit', 'Bouteille')
     }), 200
 
-# --- BACKUPS ---
+
 @settings_bp.route('/backups', methods=['GET'])
 @jwt_required()
 @roles_required(['super_admin'])
@@ -163,14 +163,14 @@ def create_backup():
         filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql"
         path = os.path.join(BACKUP_FOLDER, filename)
         
-        # Récupérer les informations de connexion depuis les variables d'environnement
+        
         db_user = os.environ.get('DB_USER', 'postgres')
         db_password = os.environ.get('DB_PASSWORD', 'inf123')
         db_host = os.environ.get('DB_HOST', '127.0.0.1')
         db_port = os.environ.get('DB_PORT', '5432')
         db_name = os.environ.get('DB_NAME', 'essivi_db')
         
-        # Commande pg_dump pour créer la sauvegarde
+        
         env = os.environ.copy()
         env['PGPASSWORD'] = db_password
         
@@ -180,11 +180,11 @@ def create_backup():
             '-p', db_port,
             '-U', db_user,
             '-d', db_name,
-            '-F', 'p',  # Format plain SQL
+            '-F', 'p',  
             '-f', path
         ]
         
-        # LOG CRITIQUE : Afficher la commande complète (Attention: contient le mot de passe si pas géré via env)
+        
         print(f"🚀 Executing command: {' '.join(cmd)}")
         
         try:
@@ -199,7 +199,7 @@ def create_backup():
         
         if result.returncode != 0:
             print(f"❌ Erreur pg_dump: {result.stderr}")
-            # Fallback : créer un fichier de sauvegarde minimal
+            
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(f"-- ESSIVI DATABASE BACKUP --\n")
                 f.write(f"-- Date: {datetime.now().isoformat()}\n")
@@ -232,7 +232,7 @@ def get_backup_file(filename):
         return send_file(filepath, as_attachment=True)
     return jsonify({"msg": "Fichier non trouvé"}), 404
 
-# --- SÉCURITÉ & LOGS ---
+
 @settings_bp.route('/security-logs', methods=['GET'])
 @jwt_required()
 @roles_required(['super_admin'])
@@ -258,8 +258,8 @@ def change_password():
         user = User.query.get(user_id)
         if not user: return jsonify({"msg": "Utilisateur non trouvé"}), 404
         
-        # On ne vérifie pas l'ancien mot de passe ici par simplicité, 
-        # mais on devrait normalement.
+        
+        
         user.password_hash = generate_password_hash(data.get('new_password'))
         db.session.commit()
         return jsonify({"msg": "Mot de passe changé"}), 200

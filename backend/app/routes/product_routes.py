@@ -5,11 +5,11 @@ from flask_jwt_extended import jwt_required, get_jwt
 
 product_bp = Blueprint('products', __name__, url_prefix='/api/products')
 
-# Lire les prix
+
 @product_bp.route('/', methods=['GET'])
 def get_products():
     products = Product.query.all()
-    # Si la table est vide, on l'initialise (Sécurité démo)
+    
     if not products:
         p1 = Product(name="Vitale", price=500)
         p2 = Product(name="Voltic", price=600)
@@ -21,7 +21,7 @@ def get_products():
         {"id": p.id, "name": p.name, "price": p.price} for p in products
     ]), 200
 
-# Modifier un prix (Admin seulement)
+
 @product_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_product(id):

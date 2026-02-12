@@ -198,7 +198,7 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
       ),
       body: Column(
         children: [
-          // TABS
+           
           Container(
             color: Colors.white,
             child: Row(
@@ -255,7 +255,7 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
             ),
           ),
           
-          // CONTENT
+           
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A)))
@@ -588,7 +588,7 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
             ElevatedButton(
               onPressed: () async {
                 try {
-                  // Appel API via dataServiceProvider ou directement Dio
+                   
                   await ref.read(dataServiceProvider).postEvaluation({
                     "delivery_id": deliveryId,
                     "rating": rating,

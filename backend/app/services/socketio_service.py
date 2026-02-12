@@ -8,37 +8,37 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Dictionary pour stocker les utilisateurs connectés
+
 connected_users = {}
 
 @socketio.on('connect')
 def handle_connect():
     """Gérer la connexion d'un client"""
     try:
-        # Tenter de vérifier le token JWT
-        # Sur SocketIO, le token peut être dans les headers ou dans query string
+        
+        
         try:
             verify_jwt_in_request()
             claims = get_jwt()
             user_id = claims.get('sub')
             user_type = claims.get('type', 'user')
         except:
-            # Si échec headers, on ne logge rien car c'est peut-être une reconnexion auto sans token
-            # On pourrait aussi vérifier dans request.args.get('token')
-            return True # On laisse connecter pour éviter les erreurs de boucle, mais sans room
+            
+            
+            return True 
         
         if user_id:
-            # Ajouter l'utilisateur à sa room personnelle
+            
             room = f"user_{user_id}"
             join_room(room)
             
-            # Ajouter à la room générale selon le type
+            
             if user_type == 'admin':
                 join_room('admin_room')
             elif user_type == 'agent':
                 join_room('agents_room')
             
-            # Stocker les infos de connexion
+            
             connected_users[user_id] = {
                 'sid': request.sid,
                 'user_type': user_type,
@@ -47,7 +47,7 @@ def handle_connect():
             
             logger.info(f"🔌 Utilisateur {user_id} ({user_type}) connecté")
             
-            # Envoyer les notifications en attente
+            
             emit('connection_established', {
                 'message': 'Connecté avec succès',
                 'user_id': user_id,
@@ -56,7 +56,7 @@ def handle_connect():
             })
     
     except Exception as e:
-        # On logge uniquement les erreurs graves
+        
         if "Missing Authorization" not in str(e):
             logger.error(f"❌ Erreur socket connect: {str(e)}")
 
@@ -64,7 +64,7 @@ def handle_connect():
 def handle_disconnect():
     """Gérer la déconnexion d'un client"""
     try:
-        # Trouver l'utilisateur par son SID
+        
         user_id = None
         for uid, info in connected_users.items():
             if info.get('sid') == request.sid:
@@ -74,7 +74,7 @@ def handle_disconnect():
         if user_id:
             user_info = connected_users[user_id]
             
-            # Quitter les rooms
+            
             room = f"user_{user_id}"
             leave_room(room)
             
@@ -83,12 +83,12 @@ def handle_disconnect():
             elif user_info['user_type'] == 'agent':
                 leave_room('agents_room')
             
-            # Supprimer des utilisateurs connectés
+            
             del connected_users[user_id]
             
             logger.info(f"🔌 Utilisateur {user_id} déconnecté")
             
-            # Notifier les admins
+            
             socketio.emit('user_disconnected', {
                 'user_id': user_id,
                 'user_type': user_info['user_type'],
@@ -121,7 +121,7 @@ def handle_join_agent_room(data):
         logger.error(f"❌ Erreur join_agent_room: {str(e)}")
         emit('error', {'message': 'Erreur lors de la jointure de room'})
 
-# Fonctions utilitaires pour émettre des événements
+
 def emit_to_user(user_id, event, data):
     """Émettre un événement à un utilisateur spécifique"""
     room = f"user_{user_id}"
@@ -139,7 +139,7 @@ def emit_to_all(event, data):
     """Émettre un événement à tous les utilisateurs connectés"""
     socketio.emit(event, data)
 
-# Notifications spécifiques
+
 def notify_new_delivery(delivery_data):
     """Notifier les admins d'une nouvelle livraison"""
     emit_to_admins('new_delivery', {

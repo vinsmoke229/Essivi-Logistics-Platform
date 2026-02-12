@@ -16,7 +16,7 @@ class NotificationService:
         self.smtp_password = os.getenv('SMTP_PASSWORD', '')
         self.from_email = os.getenv('FROM_EMAIL', 'noreply@essivi.com')
         
-        # Configuration SMS (exemple avec API Twilio)
+        
         self.sms_api_key = os.getenv('SMS_API_KEY', '')
         self.sms_api_secret = os.getenv('SMS_API_SECRET', '')
         self.sms_from_number = os.getenv('SMS_FROM_NUMBER', '')
@@ -37,13 +37,13 @@ class NotificationService:
                 print(f"CONTENT: {html_content[:100]}...")
                 return True
             
-            # Créer le message
+            
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
             msg['From'] = f"ESSIVI <{self.from_email}>"
             msg['To'] = to_email
             
-            # Ajouter les versions texte et HTML
+            
             if text_content:
                 text_part = MIMEText(text_content, 'plain')
                 msg.attach(text_part)
@@ -51,7 +51,7 @@ class NotificationService:
             html_part = MIMEText(html_content, 'html')
             msg.attach(html_part)
             
-            # Envoyer l'email
+            
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
                 server.login(self.smtp_username, self.smtp_password)
@@ -73,7 +73,7 @@ class NotificationService:
                 print(f"MESSAGE: {message}")
                 return True
             
-            # Exemple avec API Twilio
+            
             url = f"https://api.twilio.com/2010-04-01/Accounts/{self.sms_api_key}/Messages.json"
             data = {
                 'From': self.sms_from_number,
@@ -116,18 +116,18 @@ class NotificationService:
         """Notifier un agent ou client pour une nouvelle livraison avec modèles dynamiques"""
         settings = self.get_settings()
         
-        # Vérifier si les notifications sont activées globalement
+        
         if not settings.get('notifications_enabled', True):
             print("🚫 Notifications désactivées dans les paramètres.")
             return False
 
-        # --- EMAIL ---
+        
         email_sent = False
         if settings.get('notification_email', True):
             template = settings.get('email_template_order', "Bonjour {client}, votre commande {order_id} est confirmée.")
             subject = f"📦 Livraison ESSIVI - {delivery_info.get('client_name', 'Client')}"
             
-            # Remplacement des tags
+            
             message_body = template.format(
                 client=delivery_info.get('client_name', 'Client'),
                 order_id=delivery_info.get('id', 'N/A'),
@@ -150,7 +150,7 @@ class NotificationService:
             """
             email_sent = self.send_email(agent_email, subject, html_content, message_body)
 
-        # --- SMS ---
+        
         sms_sent = False
         if settings.get('notification_sms', False):
             template = settings.get('sms_template_delivery', "Votre livreur {agent} arrive dans {time} min.")
@@ -271,5 +271,5 @@ class NotificationService:
         
         return self.send_email(user_email, subject, html_content, text_content)
 
-# Instance globale du service
+
 notification_service = NotificationService()

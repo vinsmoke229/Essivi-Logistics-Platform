@@ -11,7 +11,7 @@ import './database_helper.dart';
 class DataService {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
-  // Helper pour les headers avec Token
+   
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -21,9 +21,9 @@ class DataService {
     };
   }
   
-  // --- RÉCUPÉRER LES MISSIONS DE L'AGENT ---
+   
   Future<List<dynamic>> getMyMissions() async {
-    // Petit délai pour laisser l'UI respirer au démarrage
+     
     await Future.delayed(const Duration(milliseconds: 500));
     final url = Uri.parse('${ApiConstants.baseUrl}/orders/my-missions');
     final headers = await _getHeaders();
@@ -41,12 +41,12 @@ class DataService {
     }
   }
 
-  // 1. Récupérer la liste des Clients
+   
   Future<List<dynamic>> getClients() async {
-    // Petit délai pour laisser l'UI respirer
+     
     await Future.delayed(const Duration(milliseconds: 500));
     
-    // D'abord renvoyer le cache pour affichage instantané, puis rafraîchir
+     
     final url = Uri.parse('${ApiConstants.baseUrl}/clients/');
     final headers = await _getHeaders();
 
@@ -65,7 +65,7 @@ class DataService {
     }
   }
 
-  // 2. Envoyer une Livraison (avec support Offline & Produits Dynamiques)
+   
   Future<bool> sendDelivery({
     required int clientId,
     List<Map<String, dynamic>> items = const [],
@@ -142,7 +142,7 @@ class DataService {
     });
   }
 
-  // Synchronisation des données locales vers le serveur
+   
   Future<void> syncOfflineDeliveries() async {
     final connectivityResult = await Connectivity().checkConnectivity();
     if (connectivityResult == ConnectivityResult.none) return;
@@ -182,7 +182,7 @@ class DataService {
     return await _dbHelper.getUnsyncedDeliveries();
   }
 
-  // CLIENT API METHODS
+   
   Future<List<dynamic>> getClientOrders() async {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/client/orders');
@@ -273,12 +273,12 @@ class DataService {
     final body = jsonEncode({
       "lat": lat, 
       "lng": lng,
-      "items": items // ✅ Envoi de la liste des items
+      "items": items  
     });
 
     try {
       final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 30));
-      // ✅ 200 = Success (Recovery), 201 = Success (Created), 400 = Error but maybe handled
+       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return data['tour_id'];
@@ -358,7 +358,7 @@ class DataService {
         url,
         headers: headers,
         body: jsonEncode({'lat': lat, 'lng': lng}),
-      ).timeout(const Duration(seconds: 5)); // Shorter for location
+      ).timeout(const Duration(seconds: 5));  
     } catch (e) {}
   }
 

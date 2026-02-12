@@ -3,34 +3,34 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter/foundation.dart';
 import '../core/constants/api_constants.dart';
 
-/// Service Singleton pour gérer la connexion Socket.IO temps réel
-/// Permet le suivi GPS en direct des agents de livraison
+ 
+ 
 class SocketService {
-  // ========== SINGLETON PATTERN ==========
+   
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
   SocketService._internal();
 
-  // ========== PROPRIÉTÉS PRIVÉES ==========
+   
   IO.Socket? _socket;
   bool _isConnected = false;
   
-  // Stream pour diffuser les positions aux écrans
+   
   final _positionController = StreamController<AgentPosition>.broadcast();
   
-  // Stream pour les erreurs de connexion
+   
   final _errorController = StreamController<String>.broadcast();
 
-  // ========== GETTERS PUBLICS ==========
+   
   bool get isConnected => _isConnected;
   Stream<AgentPosition> get positionStream => _positionController.stream;
   Stream<String> get errorStream => _errorController.stream;
 
-  // ========== MÉTHODES PUBLIQUES ==========
+   
   
-  /// Connexion au serveur Socket.IO
-  /// [token] : Token JWT pour l'authentification
-  /// [orderId] : ID de la commande à suivre (optionnel, peut être joint plus tard)
+   
+   
+   
   void connect({
     required String token,
     String? orderId,
@@ -41,8 +41,8 @@ class SocketService {
     }
 
     try {
-      // Utilisation de ApiConstants.baseUrl pour l'URL dynamique
-      // Conversion de l'URL API en URL Socket.IO (retrait du /api)
+       
+       
       final socketUrl = ApiConstants.baseUrl.replaceAll('/api', '');
       
       _socket = IO.io(socketUrl, <String, dynamic>{
@@ -61,7 +61,7 @@ class SocketService {
     }
   }
 
-  /// Déconnexion propre
+   
   void disconnect() {
     if (_socket != null) {
       _socket!.disconnect();
@@ -72,7 +72,7 @@ class SocketService {
     }
   }
 
-  /// Rejoindre une "room" spécifique (commande)
+   
   void joinOrderRoom(String orderId) {
     if (_socket != null && _isConnected) {
       _socket!.emit('join_order', {'order_id': orderId});
@@ -82,7 +82,7 @@ class SocketService {
     }
   }
 
-  /// Quitter une "room"
+   
   void leaveOrderRoom(String orderId) {
     if (_socket != null && _isConnected) {
       _socket!.emit('leave_order', {'order_id': orderId});
@@ -90,44 +90,44 @@ class SocketService {
     }
   }
 
-  // ========== MÉTHODES PRIVÉES ==========
+   
   
   void _setupListeners(String? orderId) {
-    // Événement : Connexion réussie
+     
     _socket!.on('connect', (_) {
       _isConnected = true;
       debugPrint('✅ Socket connecté !');
       
-      // Auto-join la room si orderId fourni
+       
       if (orderId != null) {
         joinOrderRoom(orderId);
       }
     });
 
-    // Événement : Déconnexion
+     
     _socket!.on('disconnect', (_) {
       _isConnected = false;
       debugPrint('❌ Socket déconnecté');
     });
 
-    // Événement : Erreur
+     
     _socket!.on('error', (error) {
       debugPrint('❌ Erreur Socket: $error');
       _errorController.add('Erreur: $error');
     });
 
-    // Événement : Reconnexion
+     
     _socket!.on('reconnect', (attempt) {
       debugPrint('🔄 Reconnecté après $attempt tentative(s)');
       _isConnected = true;
       
-      // Re-join la room après reconnexion
+       
       if (orderId != null) {
         joinOrderRoom(orderId);
       }
     });
 
-    // ========== ÉVÉNEMENT MÉTIER : Position Agent ==========
+     
     _socket!.on('agent_position_update', (data) {
       try {
         final position = AgentPosition.fromJson(data);
@@ -140,7 +140,7 @@ class SocketService {
     });
   }
 
-  // ========== NETTOYAGE ==========
+   
   void dispose() {
     disconnect();
     _positionController.close();
@@ -148,8 +148,8 @@ class SocketService {
   }
 }
 
-// ========== MODÈLE DE DONNÉES ==========
-/// Représente une position GPS d'un agent à un instant T
+ 
+ 
 class AgentPosition {
   final int agentId;
   final double lat;

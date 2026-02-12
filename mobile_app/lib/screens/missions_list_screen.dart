@@ -16,12 +16,12 @@ class _MissionsListScreenState extends ConsumerState<MissionsListScreen> {
   @override
   void initState() {
     super.initState();
-    // Use Future.microtask to avoid build phase errors
+     
     Future.microtask(() => ref.read(agentProvider.notifier).loadMissions());
   }
 
   Future<Position> _determinePosition() async {
-     // Basic Geolocator wrapper
+      
      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
      if (!serviceEnabled) throw Exception('Localisation désactivée');
      LocationPermission permission = await Geolocator.checkPermission();
@@ -61,7 +61,7 @@ class _MissionsListScreenState extends ConsumerState<MissionsListScreen> {
       ),
       body: Column(
         children: [
-          // --- BLOC TOURNÉE ---
+           
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white,
@@ -85,7 +85,7 @@ class _MissionsListScreenState extends ConsumerState<MissionsListScreen> {
              ),
           const Divider(height: 1),
           
-          // --- LISTE DES MISSIONS ---
+           
           Expanded(
             child: agentState.missions.isEmpty
                 ? Center(

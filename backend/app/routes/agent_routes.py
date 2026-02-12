@@ -16,7 +16,7 @@ def format_url(url):
     path = url[1:] if url.startswith('/') else url
     return f"{request.host_url}{path}"
 
-# Helper pour obtenir le chemin absolu du dossier uploads agents
+
 def get_agent_upload_path():
     return os.path.abspath(os.path.join(current_app.root_path, '..', 'uploads', 'agents'))
 
@@ -26,7 +26,7 @@ def ensure_agent_upload_dir():
         os.makedirs(path, exist_ok=True)
     return path
 
-# --- AJOUTER UN AGENT ---
+
 @agent_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_agent():
@@ -44,7 +44,7 @@ def create_agent():
     if Agent.query.filter((Agent.matricule == data['matricule']) | (Agent.phone == data['phone'])).first():
         return jsonify({"msg": "Un agent avec ce matricule ou ce téléphone existe déjà"}), 409
 
-    # Parsing des dates
+    
     birth_date = None
     hire_date = None
     if data.get('birth_date'):
@@ -82,7 +82,7 @@ def create_agent():
         db.session.rollback()
         return jsonify({"msg": f"Erreur : {str(e)}"}), 500
 
-# --- LISTER LES AGENTS ---
+
 @agent_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_agents():
@@ -111,19 +111,19 @@ def get_agents():
         })
     return jsonify(result), 200
 
-# --- LIRE UN AGENT PAR ID ---
+
 @agent_bp.route('/<int:id>', methods=['GET'])
 @jwt_required()
 def get_agent(id):
     try:
         agent = Agent.query.get_or_404(id)
         
-        # Calcul sécurisé des stats
+        
         deliveries = agent.deliveries if agent.deliveries else []
         total_deliveries = len(deliveries)
         total_revenue = sum(getattr(d, 'total_amount', 0) for d in deliveries)
 
-        # Récupérer l'historique des tournées de manière sécurisée
+        
         tours_history = []
         tours = agent.tours if agent.tours else []
         for tour in tours:
@@ -136,7 +136,7 @@ def get_agent(id):
                 "status": "terminée" if getattr(tour, 'end_time', None) else "en cours"
             })
 
-        # Sérialisation robuste des livraisons
+        
         deliveries_list = []
         for d in deliveries:
             deliveries_list.append({
@@ -176,7 +176,7 @@ def get_agent(id):
         print(traceback.format_exc())
         return jsonify({"msg": "Erreur interne lors du chargement de l'agent", "error": str(e)}), 500
 
-# --- PROFIL DE L'AGENT CONNECTÉ ---
+
 @agent_bp.route('/profile', methods=['GET'])
 @jwt_required()
 def get_agent_profile():
@@ -184,17 +184,17 @@ def get_agent_profile():
         agent_id = int(get_jwt_identity())
         agent = Agent.query.get_or_404(agent_id)
         
-        # Calcul des stats de performance
+        
         deliveries = agent.deliveries if agent.deliveries else []
         total_deliveries = len(deliveries)
         total_revenue = sum(getattr(d, 'total_amount', 0) for d in deliveries)
         
-        # On renvoie un objet plat facile à consommer pour le mobile
+        
         return jsonify({
             "id": agent.id,
             "matricule": agent.matricule,
             "full_name": agent.full_name,
-            "name": agent.full_name, # Alias pour compatibilité UI
+            "name": agent.full_name, 
             "phone": agent.phone,
             "email": agent.email or "N/A",
             "address": agent.address or "Indéfinie",
@@ -210,7 +210,7 @@ def get_agent_profile():
                 "average_rating": getattr(agent, 'average_rating', 4.8),
                 "punctuality_rate": getattr(agent, 'punctuality_rate', 100.0)
             },
-            # Champs pour dynamiser AgentProfileScreen directement
+            
             "performance": [
                 {"label": "Total livraisons", "value": str(total_deliveries)},
                 {"label": "Montant total", "value": f"{total_revenue:,.0f} FCFA"},
@@ -220,7 +220,7 @@ def get_agent_profile():
     except Exception as e:
         return jsonify({"msg": "Erreur profil", "error": str(e)}), 500
 
-# --- MODIFIER UN AGENT ---
+
 
 @agent_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -261,7 +261,7 @@ def update_agent(id):
     except Exception as e:
         return jsonify({"msg": f"Erreur : {str(e)}"}), 500
 
-# --- UPLOAD PHOTO AGENT ---
+
 @agent_bp.route('/upload-photo', methods=['POST'])
 @jwt_required()
 def upload_agent_photo():
@@ -290,7 +290,7 @@ def get_agent_photo(filename):
         return send_file(filepath)
     return jsonify({"msg": "Photo non trouvée"}), 404
 
-# --- SUPPRIMER UN AGENT ---
+
 @agent_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_agent(id):
@@ -319,7 +319,7 @@ def delete_agent(id):
         db.session.rollback()
         return jsonify({"msg": f"Erreur : {str(e)}"}), 500
 
-# --- POSITION GPS ---
+
 @agent_bp.route('/location', methods=['POST'])
 @jwt_required()
 def update_location():
@@ -343,26 +343,26 @@ def update_location():
     if not agent:
         return jsonify({"msg": "Agent introuvable"}), 404
 
-    # 1. Update Profil (Dernière position connue)
+    
     agent.last_lat = lat
     agent.last_lng = lng
     agent.last_seen = datetime.utcnow()
 
-    # 2. 📝 TRAÇABILITÉ (BREADCRUMBS) : Enregistrement de l'historique
+    
     new_loc = AgentLocation(agent_id=agent_id, lat=lat, lng=lng)
     db.session.add(new_loc)
 
     try:
         db.session.commit()
         
-        # 3. 🔴 TEMPS RÉEL : Émission Socket.IO vers les clients concernés
-        # Récupérer les commandes actives de cet agent
+        
+        
         active_orders = Order.query.filter(
             Order.agent_id == agent_id,
             Order.status.in_(['en_cours', 'en_livraison', 'assigned'])
         ).all()
         
-        # Préparer les données de position
+        
         position_data = {
             'agent_id': agent_id,
             'lat': lat,
@@ -370,7 +370,7 @@ def update_location():
             'timestamp': datetime.utcnow().isoformat()
         }
         
-        # Émettre vers chaque room de commande
+        
         if socketio:
             for order in active_orders:
                 position_data['order_id'] = str(order.id)
@@ -381,7 +381,7 @@ def update_location():
                 )
                 print(f"📡 Position émise vers room order_{order.id}: {lat}, {lng}")
             
-            # Émettre aussi vers la room globale admin
+            
             socketio.emit(
                 'agent_position_update',
                 {

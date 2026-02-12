@@ -7,7 +7,7 @@ import math
 import traceback
 from app.utils import log_action
 
-# Importer le service de notifications
+
 try:
     from app.services.notification_service import notification_service
 except ImportError:
@@ -15,7 +15,7 @@ except ImportError:
 
 stock_bp = Blueprint('stock', __name__, url_prefix='/api/stock')
 
-# --- 1. LISTER TOUS LES ARTICLES DE STOCK ---
+
 @stock_bp.route('/items', methods=['GET'])
 @jwt_required()
 def get_stock_items():
@@ -25,7 +25,7 @@ def get_stock_items():
         result = []
         
         for item in stock_items:
-            # Calculer le statut selon le seuil de stock bas
+            
             status = 'normal'
             if item.available_stock <= item.low_stock_threshold:
                 status = 'critical' if item.available_stock == 0 else 'low'
@@ -50,7 +50,7 @@ def get_stock_items():
         print(f"Error in get_stock_items: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 2. LISTER LES MOUVEMENTS DE STOCK ---
+
 @stock_bp.route('/movements', methods=['GET'])
 @jwt_required()
 def get_stock_movements():
@@ -78,7 +78,7 @@ def get_stock_movements():
         print(f"Error in get_stock_movements: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 3. LISTER LE STOCK DES VÉHICULES ---
+
 @stock_bp.route('/vehicles', methods=['GET'])
 @jwt_required()
 def get_vehicle_stock():
@@ -106,7 +106,7 @@ def get_vehicle_stock():
         print(f"Error in get_vehicle_stock: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 4. LISTER LES ALERTES DE STOCK ---
+
 @stock_bp.route('/alerts', methods=['GET'])
 @jwt_required()
 def get_stock_alerts():
@@ -134,7 +134,7 @@ def get_stock_alerts():
     except Exception as e:
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 5. CRÉER UN ARTICLE DE STOCK ---
+
 @stock_bp.route('/items', methods=['POST'])
 @jwt_required()
 def create_stock_item():
@@ -142,7 +142,7 @@ def create_stock_item():
     try:
         data = request.get_json()
         
-        # Créer le produit s'il n'existe pas
+        
         product = Product.query.filter_by(name=data.get('product_name')).first()
         if not product:
             product = Product(
@@ -151,9 +151,9 @@ def create_stock_item():
                 is_active=True
             )
             db.session.add(product)
-            db.session.flush()  # Pour obtenir l'ID
+            db.session.flush()  
         
-        # Créer l'article de stock
+        
         stock_item = StockItem(
             product_id=product.id,
             location=data.get('location', 'Entrepôt Principal'),
@@ -169,7 +169,7 @@ def create_stock_item():
         db.session.add(stock_item)
         db.session.flush()
 
-        # Mouvement de stock initial
+        
         initial_movement = StockMovement(
             stock_item_id=stock_item.id,
             movement_type='in',
@@ -182,7 +182,7 @@ def create_stock_item():
         
         db.session.commit()
         
-        # Audit
+        
         claims = get_jwt()
         log_action(
             user_id=int(claims.get('sub')) if isinstance(claims.get('sub'), str) and claims.get('sub').isdigit() else claims.get('sub'),
@@ -203,7 +203,7 @@ def create_stock_item():
         print(f"Error in create_stock_item: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 6. RÉAPPROVISIONNER UN PRODUIT ---
+
 @stock_bp.route('/restock', methods=['POST'])
 @jwt_required()
 def restock_product():
@@ -211,11 +211,11 @@ def restock_product():
     try:
         data = request.get_json()
         
-        # ID can be string from URL/JSON, convert to int
+        
         stock_item_id = int(data.get('product_id')) if data.get('product_id') else None
         
         if not stock_item_id:
-            # Maybe it's directly the product_id? The frontend sends selectedItem.id which is StockItem.id
+            
             stock_item_id = int(data.get('stock_item_id')) if data.get('stock_item_id') else None
 
         stock_item = StockItem.query.get(stock_item_id)
@@ -226,12 +226,12 @@ def restock_product():
         if quantity <= 0:
             return jsonify({"msg": "Quantité invalide"}), 400
         
-        # Mettre à jour le stock
+        
         stock_item.total_stock += quantity
         stock_item.available_stock += quantity
         stock_item.last_restock_date = datetime.now()
         
-        # Créer le mouvement de stock
+        
         movement = StockMovement(
             stock_item_id=stock_item.id,
             movement_type='in',
@@ -243,7 +243,7 @@ def restock_product():
         db.session.add(movement)
         db.session.commit()
         
-        # Audit
+        
         claims = get_jwt()
         log_action(
             user_id=claims.get('sub'),
@@ -253,10 +253,10 @@ def restock_product():
             details=data
         )
         
-        # Vérification Stock Bas après réappro (pour lever l'alerte si besoin)
+        
         if notification_service and stock_item.available_stock <= stock_item.low_stock_threshold:
             notification_service.send_low_stock_alert(
-                admin_email="admin@essivi.com", # Email par défaut admin
+                admin_email="admin@essivi.com", 
                 product_info={
                     "product_name": stock_item.product.name,
                     "current_stock": stock_item.available_stock,
@@ -275,7 +275,7 @@ def restock_product():
         print(f"Error in restock_product: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 7. MOUVEMENT DE SORTIE DE STOCK ---
+
 @stock_bp.route('/movements/out', methods=['POST'])
 @jwt_required()
 def create_out_movement():
@@ -295,11 +295,11 @@ def create_out_movement():
         if stock_item.available_stock < quantity:
             return jsonify({"msg": "Stock insuffisant"}), 400
         
-        # Mettre à jour le stock
+        
         stock_item.available_stock -= quantity
         stock_item.reserved_stock = max(0, stock_item.reserved_stock - quantity)
         
-        # Créer le mouvement de sortie
+        
         movement = StockMovement(
             stock_item_id=stock_item.id,
             movement_type='out',
@@ -313,7 +313,7 @@ def create_out_movement():
         db.session.add(movement)
         db.session.commit()
         
-        # Audit
+        
         claims = get_jwt()
         log_action(
             user_id=claims.get('sub'),
@@ -323,7 +323,7 @@ def create_out_movement():
             details=data
         )
         
-        # Vérification Stock Bas après sortie
+        
         if notification_service and stock_item.available_stock <= stock_item.low_stock_threshold:
             notification_service.send_low_stock_alert(
                 admin_email="admin@essivi.com",
@@ -344,7 +344,7 @@ def create_out_movement():
         print(f"Error in create_out_movement: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 8. STATISTIQUES DE STOCK ---
+
 @stock_bp.route('/stats', methods=['GET'])
 @jwt_required()
 def get_stock_stats():
@@ -362,14 +362,14 @@ def get_stock_stats():
             'total_products': products_count,
             'low_stock_count': low_stock_count,
             'movements_count': total_deliveries,
-            'top_products': [] # À implémenter plus tard si besoin
+            'top_products': [] 
         }), 200
         
     except Exception as e:
         print(f"Error in get_stock_stats: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 9. RÉSOUDRE UNE ALERTE DE STOCK ---
+
 @stock_bp.route('/alerts/<int:alert_id>/resolve', methods=['PATCH'])
 @jwt_required()
 def resolve_stock_alert(alert_id):
@@ -379,7 +379,7 @@ def resolve_stock_alert(alert_id):
         return jsonify({"msg": "Accès interdit"}), 403
     
     try:
-        # Initialement simulé, loggons simplement
+        
         log_action(
             user_id=claims.get('sub'),
             action="RESOLVE_STOCK_ALERT",
@@ -393,7 +393,7 @@ def resolve_stock_alert(alert_id):
     except Exception as e:
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 10. LIRE UN ARTICLE DE STOCK PAR ID ---
+
 @stock_bp.route('/items/<int:id>', methods=['GET'])
 @jwt_required()
 def get_stock_item(id):
@@ -421,7 +421,7 @@ def get_stock_item(id):
     except Exception as e:
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 11. METTRE À JOUR UN ARTICLE DE STOCK ---
+
 @stock_bp.route('/items/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_stock_item(id):
@@ -451,7 +451,7 @@ def update_stock_item(id):
         
         db.session.commit()
         
-        # LOG D'AUDIT
+        
         log_action(
             user_id=claims.get('sub'),
             action="UPDATE_STOCK_ITEM",
@@ -460,7 +460,7 @@ def update_stock_item(id):
             details=data
         )
         
-        # Retourner l'item mis à jour pour le frontend
+        
         return jsonify({
             'id': str(stock_item.id),
             'product_name': stock_item.product.name if stock_item.product else 'Inconnu',
@@ -479,7 +479,7 @@ def update_stock_item(id):
         print(f"Error in update_stock_item: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur: {str(e)}"}), 500
 
-# --- 12. SUPPRIMER UN ARTICLE DE STOCK ---
+
 @stock_bp.route('/items/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_stock_item(id):
@@ -495,13 +495,13 @@ def delete_stock_item(id):
         
         product_name = stock_item.product.name if stock_item.product else 'Inconnu'
         
-        # Supprimer les mouvements de stock associés d'abord
+        
         StockMovement.query.filter_by(stock_item_id=stock_item.id).delete()
         
         db.session.delete(stock_item)
         db.session.commit()
         
-        # LOG D'AUDIT
+        
         log_action(
             user_id=claims.get('sub'),
             action="DELETE_STOCK_ITEM",
@@ -517,7 +517,7 @@ def delete_stock_item(id):
         print(f"Error in delete_stock_item: {traceback.format_exc()}")
         return jsonify({"msg": f"Erreur suppression: {str(e)}"}), 500
 
-# --- 13. METTRE À JOUR LE STOCK D'UN VÉHICULE ---
+
 @stock_bp.route('/vehicles/<int:vehicle_id>/products/<int:product_id>', methods=['PUT'])
 @jwt_required()
 def update_vehicle_stock(vehicle_id, product_id):

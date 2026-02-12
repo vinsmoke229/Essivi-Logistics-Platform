@@ -19,7 +19,7 @@ class HealthCheck:
         try:
             start_time = datetime.utcnow()
             
-            # Test simple de connexion
+            
             result = db.session.execute(text('SELECT 1'))
             result.fetchone()
             
@@ -44,11 +44,11 @@ class HealthCheck:
         try:
             start_time = datetime.utcnow()
             
-            # Test connexion MongoDB
+            
             mongo_uri = os.environ.get('MONGO_URI', 'mongodb://127.0.0.1:27017/essivi_logs')
             client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
             
-            # Test simple
+            
             db_info = client.server_info()
             
             duration = (datetime.utcnow() - start_time).total_seconds()
@@ -72,17 +72,17 @@ class HealthCheck:
     def check_system_resources():
         """Vérifier les ressources système"""
         try:
-            # CPU
+            
             cpu_percent = psutil.cpu_percent(interval=1)
             cpu_count = psutil.cpu_count()
             
-            # Mémoire
+            
             memory = psutil.virtual_memory()
             
-            # Disque
+            
             disk = psutil.disk_usage('/')
             
-            # Réseau
+            
             network = psutil.net_io_counters()
             
             return {
@@ -119,10 +119,10 @@ class HealthCheck:
     def check_application():
         """Vérifier l'état de l'application"""
         try:
-            # Version Python
+            
             python_version = sys.version
             
-            # Variables d'environnement critiques
+            
             env_vars = {
                 'FLASK_ENV': os.environ.get('FLASK_ENV'),
                 'DATABASE_URL': 'SET' if os.environ.get('DATABASE_URL') else 'MISSING',
@@ -130,7 +130,7 @@ class HealthCheck:
                 'MONGO_URI': 'SET' if os.environ.get('MONGO_URI') else 'MISSING'
             }
             
-            # Uptime (approximatif)
+            
             uptime = datetime.utcnow() - datetime.fromtimestamp(psutil.boot_time())
             
             return {
@@ -154,7 +154,7 @@ class HealthCheck:
         try:
             dependencies = {}
             
-            # Test imports critiques
+            
             try:
                 import flask
                 dependencies['flask'] = flask.__version__
@@ -179,7 +179,7 @@ class HealthCheck:
             except ImportError:
                 dependencies['jwt'] = 'MISSING'
             
-            # Vérifier si toutes les dépendances sont présentes
+            
             missing_deps = [k for k, v in dependencies.items() if v == 'MISSING']
             
             return {
@@ -200,7 +200,7 @@ class HealthCheck:
 def health_check():
     """Health check principal"""
     try:
-        # Collecter tous les health checks
+        
         checks = {
             'database': HealthCheck.check_database(),
             'mongodb': HealthCheck.check_mongodb(),
@@ -209,7 +209,7 @@ def health_check():
             'dependencies': HealthCheck.check_dependencies()
         }
         
-        # Déterminer le statut global
+        
         statuses = [check.get('status') for check in checks.values()]
         
         if 'unhealthy' in statuses:
@@ -219,7 +219,7 @@ def health_check():
         else:
             overall_status = 'healthy'
         
-        # Calculer le temps de réponse total
+        
         response_time = (datetime.utcnow() - datetime.utcnow()).total_seconds()
         
         response = {
@@ -230,7 +230,7 @@ def health_check():
             'checks': checks
         }
         
-        # Code HTTP selon le statut
+        
         status_code = 200 if overall_status == 'healthy' else 503
         
         logger.info(
@@ -253,7 +253,7 @@ def health_check():
 def readiness_check():
     """Readiness probe pour Kubernetes"""
     try:
-        # Vérifier uniquement les services critiques
+        
         db_check = HealthCheck.check_database()
         
         if db_check['status'] == 'healthy':
@@ -279,7 +279,7 @@ def readiness_check():
 def liveness_check():
     """Liveness probe pour Kubernetes"""
     try:
-        # Vérification simple - l'application répond
+        
         return jsonify({
             'status': 'alive',
             'timestamp': datetime.utcnow().isoformat()
@@ -295,10 +295,10 @@ def liveness_check():
 def metrics_check():
     """Métriques détaillées pour monitoring"""
     try:
-        # Collecter les métriques système
+        
         system_metrics = HealthCheck.check_system_resources()
         
-        # Métriques application
+        
         app_metrics = {
             'uptime_hours': system_metrics.get('system', {}).get('uptime', 0),
             'memory_usage_mb': system_metrics.get('system', {}).get('memory', {}).get('used', 0) / (1024*1024),

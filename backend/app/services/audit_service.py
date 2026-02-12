@@ -9,15 +9,15 @@ def log_activity(user_id, user_type, action, details=None):
         print("⚠️ MongoDB non connecté, log ignoré.")
         return
 
-    db = mongo_client.get_database() # Récupère la base par défaut (essivi_logs)
+    db = mongo_client.get_database() 
     logs_collection = db.activity_logs
 
     log_entry = {
         "timestamp": datetime.utcnow(),
         "user_id": str(user_id),
         "user_type": user_type,
-        "action": action,     # ex: "CREATE_DELIVERY"
-        "details": details or {} # ex: {"amount": 25000}
+        "action": action,     
+        "details": details or {} 
     }
 
     try:

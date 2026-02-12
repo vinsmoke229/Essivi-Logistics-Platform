@@ -6,12 +6,12 @@ from datetime import datetime
 
 permissions_bp = Blueprint('permissions', __name__, url_prefix='/api/permissions')
 
-# --- MODÈLE DE PERMISSIONS ---
+
 
 class Permission:
     """Définition des permissions granulaires"""
     
-    # Modules
+    
     MODULE_USERS = 'users'
     MODULE_AGENTS = 'agents'
     MODULE_CLIENTS = 'clients'
@@ -24,7 +24,7 @@ class Permission:
     MODULE_MAP = 'map'
     MODULE_AUDIT = 'audit'
     
-    # Actions
+    
     ACTION_CREATE = 'create'
     ACTION_READ = 'read'
     ACTION_UPDATE = 'update'
@@ -32,13 +32,13 @@ class Permission:
     ACTION_EXPORT = 'export'
     ACTION_MANAGE = 'manage'
     
-    # Niveaux de permission
+    
     LEVEL_NONE = 0
     LEVEL_READ = 1
     LEVEL_WRITE = 2
     LEVEL_ADMIN = 3
 
-# DÉFINITION DES RÔLES ET PERMISSIONS
+
 ROLE_PERMISSIONS = {
     'super_admin': {
         'description': 'Accès complet à tout le système',
@@ -144,7 +144,7 @@ ROLE_PERMISSIONS = {
     }
 }
 
-# --- FONCTIONS UTILITAIRES ---
+
 
 def get_user_permissions(user_role: str) -> dict:
     """Récupérer les permissions d'un utilisateur selon son rôle"""
@@ -158,7 +158,7 @@ def check_permission(user_role: str, module: str, action: str, level: int = None
     if level is not None:
         return module_level >= level
     
-    # Mapping actions vers niveaux
+    
     action_levels = {
         Permission.ACTION_READ: Permission.LEVEL_READ,
         Permission.ACTION_CREATE: Permission.LEVEL_WRITE,
@@ -192,7 +192,7 @@ def require_permission(module: str, action: str, level: int = None):
         return decorated_function
     return decorator
 
-# --- API ROUTES ---
+
 
 @permissions_bp.route('/roles', methods=['GET'])
 @jwt_required()
@@ -202,7 +202,7 @@ def get_roles():
         claims = get_jwt()
         user_role = claims.get('role', 'viewer')
         
-        # Seul super_admin peut voir toutes les permissions
+        
         if user_role != 'super_admin':
             return jsonify({"msg": "Accès refusé"}), 403
         
@@ -233,7 +233,7 @@ def get_my_permissions():
         
         permissions = get_user_permissions(user_role)
         
-        # Ajouter les infos utilisateur
+        
         user_info = {}
         if user_role == 'agent':
             agent = Agent.query.filter_by(user_id=user_id).first()
@@ -325,7 +325,7 @@ def update_user_role(user_id):
         claims = get_jwt()
         current_role = claims.get('role', 'viewer')
         
-        # Seul super_admin peut modifier les rôles
+        
         if current_role != 'super_admin':
             return jsonify({"msg": "Accès refusé"}), 403
         
@@ -339,7 +339,7 @@ def update_user_role(user_id):
         if not user:
             return jsonify({"msg": "Utilisateur non trouvé"}), 404
         
-        # Empêcher la modification du rôle du dernier super_admin
+        
         if user.role == 'super_admin' and new_role != 'super_admin':
             super_admin_count = User.query.filter_by(role='super_admin').count()
             if super_admin_count <= 1:
@@ -350,7 +350,7 @@ def update_user_role(user_id):
         user.updated_at = datetime.utcnow()
         db.session.commit()
         
-        # Logger le changement de rôle
+        
         try:
             from app.routes.audit_routes import log_action
             log_action(

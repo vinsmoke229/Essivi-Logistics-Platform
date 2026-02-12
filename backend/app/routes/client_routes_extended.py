@@ -12,13 +12,13 @@ def format_url(url):
     path = url[1:] if url.startswith('/') else url
     return f"{request.host_url}{path}"
 
-# 1. HISTORIQUE DES COMMANDES CLIENT
+
 @client_bp.route('/orders', methods=['GET'])
 @jwt_required()
 def get_client_orders():
     claims = get_jwt()
     
-    # Récupérer le client connecté
+    
     if claims.get('type') != 'client':
         return jsonify({"msg": "Accès réservé aux clients"}), 403
     
@@ -29,12 +29,12 @@ def get_client_orders():
     
     print(f"🔍 DEBUG - ClientOrders: Récupération commandes pour client {client_id}")
     
-    # Récupérer toutes les commandes du client
+    
     orders = Order.query.filter_by(client_id=client_id).order_by(Order.created_at.desc()).all()
     
     result = []
     for order in orders:
-        # Construction du résumé des articles
+        
         items_summary = []
         for item in order.items:
             items_summary.append({
@@ -49,20 +49,20 @@ def get_client_orders():
             "preferred_time": order.preferred_delivery_time,
             "special_instructions": order.instructions,
             "created_at": order.created_at.isoformat() if order.created_at else None,
-            "updated_at": order.created_at.isoformat() if order.created_at else None, # Pas de updated_at dans sql_models.Order
+            "updated_at": order.created_at.isoformat() if order.created_at else None, 
             "total_amount": sum((item.product.price * item.quantity for item in order.items if item.product))
         })
     
     print(f"✅ DEBUG - {len(result)} commandes trouvées")
     return jsonify(result), 200
 
-# 2. HISTORIQUE DES LIVRAISONS CLIENT
+
 @client_bp.route('/deliveries', methods=['GET'])
 @jwt_required()
 def get_client_deliveries():
     claims = get_jwt()
     
-    # Récupérer le client connecté
+    
     if claims.get('type') != 'client':
         return jsonify({"msg": "Accès réservé aux clients"}), 403
     
@@ -73,12 +73,12 @@ def get_client_deliveries():
     
     print(f"🔍 DEBUG - ClientDeliveries: Récupération livraisons pour client {client_id}")
     
-    # Récupérer toutes les livraisons du client
+    
     deliveries = Delivery.query.filter_by(client_id=client_id).order_by(Delivery.date.desc()).all()
     
     result = []
     for delivery in deliveries:
-        # Construction du résumé des articles
+        
         items_summary = []
         for item in delivery.items:
             items_summary.append({
@@ -101,13 +101,13 @@ def get_client_deliveries():
     print(f"✅ DEBUG - {len(result)} livraisons trouvées")
     return jsonify(result), 200
 
-# 3. FACTURES CLIENT
+
 @client_bp.route('/invoices', methods=['GET'])
 @jwt_required()
 def get_client_invoices():
     claims = get_jwt()
     
-    # Récupérer le client connecté
+    
     if claims.get('type') != 'client':
         return jsonify({"msg": "Accès réservé aux clients"}), 403
     
@@ -118,12 +118,12 @@ def get_client_invoices():
     
     print(f"🔍 DEBUG - ClientInvoices: Récupération factures pour client {client_id}")
     
-    # Récupérer le client
+    
     client = Client.query.get(client_id)
     if not client:
         return jsonify({"msg": "Client non trouvé"}), 404
     
-    # Récupérer toutes les livraisons validées (factures)
+    
     deliveries = Delivery.query.filter_by(client_id=client_id, status='completed').order_by(Delivery.date.desc()).all()
     
     invoices = []
@@ -140,12 +140,12 @@ def get_client_invoices():
             "total": delivery.total_amount
         }
         
-        # Ajouter les articles
+        
         if delivery.quantity_vitale > 0:
             invoice["items"].append({
                 "name": "Eau Vitale",
                 "quantity": delivery.quantity_vitale,
-                "unit_price": 500,  # Prix unitaire à ajuster
+                "unit_price": 500,  
                 "total": delivery.quantity_vitale * 500
             })
             invoice["subtotal"] += delivery.quantity_vitale * 500
@@ -154,12 +154,12 @@ def get_client_invoices():
             invoice["items"].append({
                 "name": "Eau Voltic",
                 "quantity": delivery.quantity_voltic,
-                "unit_price": 500,  # Prix unitaire à ajuster
+                "unit_price": 500,  
                 "total": delivery.quantity_voltic * 500
             })
             invoice["subtotal"] += delivery.quantity_voltic * 500
         
-        # Calculer la taxe (ex: 18% TVA)
+        
         invoice["tax"] = invoice["subtotal"] * 0.18
         
         invoices.append(invoice)
@@ -167,13 +167,13 @@ def get_client_invoices():
     print(f"✅ DEBUG - {len(invoices)} factures générées")
     return jsonify(invoices), 200
 
-# 4. DÉTAILS D'UNE FACTURE SPÉCIFIQUE
+
 @client_bp.route('/invoices/<int:delivery_id>', methods=['GET'])
 @jwt_required()
 def get_invoice_detail(delivery_id):
     claims = get_jwt()
     
-    # Récupérer le client connecté
+    
     if claims.get('type') != 'client':
         return jsonify({"msg": "Accès réservé aux clients"}), 403
     
@@ -182,15 +182,15 @@ def get_invoice_detail(delivery_id):
     except:
         return jsonify({"msg": "ID client invalide"}), 400
     
-    # Récupérer la livraison
+    
     delivery = Delivery.query.filter_by(id=delivery_id, client_id=client_id).first()
     if not delivery:
         return jsonify({"msg": "Facture non trouvée"}), 404
     
-    # Récupérer le client
+    
     client = Client.query.get(client_id)
     
-    # Générer la facture détaillée
+    
     invoice = {
         "id": delivery.id,
         "invoice_number": f"INV-{delivery.id:06d}",
@@ -209,7 +209,7 @@ def get_invoice_detail(delivery_id):
         "payment_status": "paid" if delivery.status == 'completed' else "pending"
     }
     
-    # Ajouter les articles
+    
     if delivery.quantity_vitale > 0:
         invoice["items"].append({
             "name": "Eau Vitale",
@@ -230,18 +230,18 @@ def get_invoice_detail(delivery_id):
         })
         invoice["subtotal"] += delivery.quantity_voltic * 500
     
-    # Calculer la taxe
+    
     invoice["tax"] = invoice["subtotal"] * invoice["tax_rate"]
     
     return jsonify(invoice), 200
 
-# 5. STATISTIQUES CLIENT
+
 @client_bp.route('/stats', methods=['GET'])
 @jwt_required()
 def get_client_stats():
     claims = get_jwt()
     
-    # Récupérer le client connecté
+    
     if claims.get('type') != 'client':
         return jsonify({"msg": "Accès réservé aux clients"}), 403
     
@@ -250,25 +250,25 @@ def get_client_stats():
     except:
         return jsonify({"msg": "ID client invalide"}), 400
     
-    # Récupérer les statistiques
+    
     total_orders = Order.query.filter_by(client_id=client_id).count()
     completed_deliveries = Delivery.query.filter_by(client_id=client_id, status='completed').count()
     pending_orders = Order.query.filter_by(client_id=client_id).filter(Order.status.in_(['pending', 'accepted', 'in_progress'])).count()
     
-    # Calculer le montant total
+    
     total_amount = db.session.query(db.func.sum(Delivery.total_amount)).filter_by(client_id=client_id, status='completed').scalar() or 0
     
     stats = {
         "total_orders": total_orders,
         "completed_deliveries": completed_deliveries,
-        "pending_deliveries": pending_orders, # Renommé pour compatibilité UI
+        "pending_deliveries": pending_orders, 
         "total_amount_spent": total_amount,
         "average_basket": total_amount / completed_deliveries if completed_deliveries > 0 else 0
     }
     
     return jsonify(stats), 200
 
-# 5.1 DÉTAILS COMPLETS CLIENT POUR ADMIN
+
 @client_bp.route('/details/<int:id>', methods=['GET'])
 @jwt_required()
 def get_client_details_admin(id):
@@ -278,12 +278,12 @@ def get_client_details_admin(id):
 
     client = Client.query.get_or_404(id)
     
-    # Stats
+    
     total_orders = Order.query.filter_by(client_id=id).count()
     completed_deliveries = Delivery.query.filter_by(client_id=id, status='completed').count()
     total_amount = db.session.query(db.func.sum(Delivery.total_amount)).filter_by(client_id=id, status='completed').scalar() or 0
     
-    # Dernières commandes
+    
     latest_orders = Order.query.filter_by(client_id=id).order_by(Order.created_at.desc()).limit(10).all()
     orders_data = []
     for o in latest_orders:
@@ -312,7 +312,7 @@ def get_client_details_admin(id):
         "latest_orders": orders_data
     }), 200
 
-# 6. RÉCUPÉRER LE PROFIL DU CLIENT CONNECTÉ
+
 @client_bp.route('/profile', methods=['GET'])
 @jwt_required()
 def get_profile():
@@ -331,7 +331,7 @@ def get_profile():
         "responsible_name": client.responsible_name
     }), 200
 
-# 7. CHANGER LE CODE PIN
+
 @client_bp.route('/change-pin', methods=['PUT'])
 @jwt_required()
 def change_pin():
@@ -357,7 +357,7 @@ def change_pin():
     
     return jsonify({"msg": "Code PIN mis à jour avec succès"}), 200
 
-# 8. EXPORT PDF DES FACTURES
+
 @client_bp.route('/export-pdf', methods=['GET'])
 @jwt_required()
 def export_invoices_pdf():
@@ -365,8 +365,8 @@ def export_invoices_pdf():
     if claims.get('type') != 'client':
         return jsonify({"msg": "Accès réservé aux clients"}), 403
     
-    # Simuler la génération d'un PDF
-    # En production, utiliser fpdf ou reportlab
+    
+    
     return jsonify({
         "msg": "Facture PDF générée avec succès",
         "download_url": "https://example.com/invoice_sample.pdf"

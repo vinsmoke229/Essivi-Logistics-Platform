@@ -9,7 +9,7 @@ audit_bp = Blueprint('audit', __name__, url_prefix='/api/audit')
 @audit_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_logs():
-    # Seuls les admins peuvent voir les logs d'audit
+    
     claims = get_jwt()
     if claims.get('role') != 'super_admin' and claims.get('role') != 'admin':
         return jsonify({"msg": "Accès refusé"}), 403
@@ -18,7 +18,7 @@ def get_logs():
     
     results = []
     for log in logs:
-        # On essaie de récupérer le nom de l'utilisateur ou de l'agent
+        
         user_name = "Système"
         if log.user:
             user_name = log.user.username
@@ -33,20 +33,20 @@ def get_logs():
             "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             "details": log.details,
             "ip": log.ip_address,
-            "status": "Success" # Pour l'instant on log que les succès dans cette table
+            "status": "Success" 
         })
 
     return jsonify(results), 200
 
 @audit_bp.route('/', methods=['DELETE'])
 @jwt_required()
-@roles_required(['super_admin'])  # UNIQUEMENT Super Admin peut réinitialiser les logs
+@roles_required(['super_admin'])  
 def delete_all_logs():
     """
     Réinitialise tous les logs d'audit (ATTENTION : Action irréversible)
     """
     try:
-        # Supprimer tous les logs
+        
         num_deleted = AuditLog.query.delete()
         db.session.commit()
         

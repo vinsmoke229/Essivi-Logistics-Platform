@@ -8,7 +8,7 @@ from app.utils.helpers import roles_required
 
 user_bp = Blueprint('users', __name__, url_prefix='/api/users')
 
-# --- 1. LISTER LES UTILISATEURS ADMIN/MANAGER ---
+
 @user_bp.route('/', methods=['GET'])
 @jwt_required()
 @roles_required(['super_admin', 'manager', 'supervisor'])
@@ -30,7 +30,7 @@ def get_users():
         
     return jsonify(result), 200
 
-# --- 2. CRÉER UN NOUVEL UTILISATEUR ADMIN ---
+
 @user_bp.route('/', methods=['POST'])
 @jwt_required()
 @roles_required(['super_admin'])
@@ -38,11 +38,11 @@ def create_user():
     claims = get_jwt()
     data = request.get_json()
     
-    # Validation basique
+    
     if not data.get('username') or not data.get('email') or not data.get('password'):
         return jsonify({"msg": "Champs obligatoires manquants"}), 400
         
-    # Vérification doublons
+    
     if User.query.filter((User.email == data['email']) | (User.username == data['username'])).first():
         return jsonify({"msg": "Email ou Username déjà utilisé"}), 409
         
@@ -59,7 +59,7 @@ def create_user():
         db.session.add(new_user)
         db.session.commit()
         
-        # LOG D'AUDIT
+        
         log_action(
             user_id=claims.get('sub'),
             action="CREATE_USER",
@@ -74,7 +74,7 @@ def create_user():
         db.session.rollback()
         return jsonify({"msg": f"Erreur serveur: {str(e)}"}), 500
 
-# --- 3. MODIFIER UN UTILISATEUR ---
+
 @user_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
 @roles_required(['super_admin'])
@@ -108,14 +108,14 @@ def update_user(id):
         db.session.rollback()
         return jsonify({"msg": "Erreur mise à jour"}), 500
 
-# --- 4. SUPPRIMER UN UTILISATEUR ---
+
 @user_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
 @roles_required(['super_admin'])
 def delete_user(id):
     claims = get_jwt()
         
-    # Empêcher de se supprimer soi-même
+    
     if str(claims.get('sub')) == str(id):
         return jsonify({"msg": "Vous ne pouvez pas supprimer votre propre compte"}), 400
         
@@ -139,7 +139,7 @@ def delete_user(id):
         db.session.rollback()
         return jsonify({"msg": "Erreur suppression"}), 500
 
-# --- 5. CHANGER SON PROPRE PROFIL (Tous rôles admin) ---
+
 @user_bp.route('/profile', methods=['PUT'])
 @jwt_required()
 def update_profile():

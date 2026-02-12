@@ -14,21 +14,21 @@ class StructuredLogger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
         
-        # Créer le formatter structuré
+        
         formatter = StructuredFormatter()
         
-        # Console handler
+        
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
         
-        # File handler (optionnel)
+        
         try:
             file_handler = logging.FileHandler('logs/app.log')
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
         except:
-            pass  # Le répertoire logs n'existe peut-être pas
+            pass  
     
     def _log(self, level: int, message: str, **kwargs):
         """Méthode interne pour logging structuré"""
@@ -48,7 +48,7 @@ class StructuredLogger:
             'extra': kwargs
         }
         
-        # Nettoyer les données None
+        
         log_data = {k: v for k, v in log_data.items() if v is not None}
         
         self.logger.log(level, json.dumps(log_data, default=str))
@@ -88,7 +88,7 @@ class StructuredFormatter(logging.Formatter):
             log_data = json.loads(record.getMessage())
             return json.dumps(log_data, ensure_ascii=False, indent=2)
         except:
-            # Fallback pour les messages non-JSON
+            
             return json.dumps({
                 'timestamp': datetime.utcnow().isoformat(),
                 'level': record.levelname,
@@ -98,7 +98,7 @@ class StructuredFormatter(logging.Formatter):
                 'line': record.lineno
             }, ensure_ascii=False)
 
-# Instance globale du logger
+
 logger = StructuredLogger()
 
 def log_function_call(func):
@@ -242,7 +242,7 @@ def log_structured_action(action: str, details: Dict[str, Any] = None):
         details=details or {}
     )
 
-# Exportations
+
 __all__ = [
     'logger',
     'StructuredLogger',
