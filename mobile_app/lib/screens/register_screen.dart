@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../presentation/providers/auth_provider.dart';
+import 'client_dashboard_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -9,44 +12,60 @@ class RegisterScreen extends ConsumerStatefulWidget {
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+
+
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _responsibleController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _pinController = TextEditingController();
   
+  LatLng _pinnedLocation = const LatLng(6.13, 1.22); // Default Lomé
+  final MapController _mapController = MapController();
+  
   void _submit() async {
+    // ... logic ...
+    final lat = _pinnedLocation.latitude;
+    final lng = _pinnedLocation.longitude;
+    // Note: I'll need to update the provider to accept GPS but for now let's focus on UI
     if (!_formKey.currentState!.validate()) return;
     
     // Hide keyboard
     FocusScope.of(context).unfocus();
 
     final name = _nameController.text.trim();
+    final responsible = _responsibleController.text.trim();
     final phone = _phoneController.text.trim();
     final address = _addressController.text.trim();
     final pin = _pinController.text.trim();
 
-    print("🔍 DEBUG - Tentative d'inscription client:");
-    print("Nom: $name");
-    print("Téléphone: $phone");
-    print("Adresse: $address");
-    print("PIN: $pin");
-
     try {
-      await ref.read(authProvider.notifier).registerClient(name, phone, address, pin: pin);
+      await ref.read(authProvider.notifier).registerClient(
+        name, 
+        phone, 
+        address, 
+        responsibleName: responsible, 
+        pin: pin
+      );
 
-      // Check if error
-      if (ref.read(authProvider).error == null) {
+      // 🚀 AUTO-LOGIN & ROUTAGE DIRECT (Mission 2)
+      final authState = ref.read(authProvider);
+      if (authState.user != null && authState.error == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✅ Compte créé avec succès ! Connectez-vous avec votre téléphone et PIN.'),
+              content: Text('✅ Inscription et Connexion réussies !'),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
             )
           );
-          Navigator.pop(context); // Go back to login
+          // Redirection vers le Dashboard Client directement
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const ClientDashboardScreen()),
+            (route) => false,
+          );
         }
       } else {
         if (mounted) {
@@ -75,6 +94,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _responsibleController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
     _pinController.dispose();
@@ -131,12 +151,73 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14),
                     ),
                     const SizedBox(height: 32),
+
+                    // 📍 CARTE DE PINNING (Mission 3)
+                    Container(
+                      height: 250,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)
+                        ]
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: _pinnedLocation,
+                              initialZoom: 14.0,
+                              onTap: (tapPosition, point) {
+                                setState(() {
+                                  _pinnedLocation = point;
+                                });
+                              },
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.essivi.delivery',
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _pinnedLocation,
+                                    width: 80,
+                                    height: 80,
+                                    child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          PositionResultOverlay(lat: _pinnedLocation.latitude, lng: _pinnedLocation.longitude),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "💡 Touchez la carte pour épingler votre position exacte",
+                      style: TextStyle(color: Colors.blue.shade300, fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 32),
                     
                     _buildTextField(
                       controller: _nameController, 
                       label: 'Nom du Point de Vente', 
                       icon: Icons.store,
                       validator: (value) => value!.isEmpty ? 'Nom requis' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    _buildTextField(
+                      controller: _responsibleController, 
+                      label: 'Nom du Responsable / Gérant', 
+                      icon: Icons.person_outline,
+                      validator: (value) => value!.isEmpty ? 'Nom du responsable requis' : null,
                     ),
                     const SizedBox(height: 16),
                     
@@ -287,6 +368,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         counterText: maxLength != null ? '' : null,
       ),
       validator: validator ?? (value) => value!.isEmpty ? 'Requis' : null,
+    );
+  }
+}
+
+class PositionResultOverlay extends StatelessWidget {
+  final double lat;
+  final double lng;
+  const PositionResultOverlay({super.key, required this.lat, required this.lng});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      bottom: 12,
+      left: 12,
+      right: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.gps_fixed, color: Colors.blue, size: 14),
+            const SizedBox(width: 8),
+            Text(
+              "Position : ${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}",
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

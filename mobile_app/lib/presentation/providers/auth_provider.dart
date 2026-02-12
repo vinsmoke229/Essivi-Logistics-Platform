@@ -60,25 +60,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> registerClient(String name, String phone, String address, {String? pin}) async {
+  Future<void> registerClient(String name, String phone, String address, {String? responsibleName, String? pin}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       print("🔍 DEBUG - AuthProvider: registerClient appelé");
-      print("Nom: $name");
-      print("Téléphone: $phone");
-      print("Adresse: $address");
-      print("PIN: $pin");
+      print("Nom: $name, Gérant: $responsibleName, Tél: $phone");
       
-      if (_repository is AuthRepositoryImpl) {
-         await (_repository as AuthRepositoryImpl).registerClient(name, phone, address, pin: pin);
-      } else {
-         // Should throw or log
-         throw Exception("Repository implementation not available");
-      }
-      state = state.copyWith(isLoading: false);
+      final user = await _repository.registerClient(name, phone, address, responsibleName: responsibleName, pin: pin);
+      
+      state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
       print("❌ DEBUG - AuthProvider: Erreur registerClient: $e");
-      state = state.copyWith(isLoading: false, error: e.toString());
+      String errorMsg = e.toString().replaceFirst('Exception: ', '').replaceFirst('Exception', '');
+      state = state.copyWith(isLoading: false, error: errorMsg);
     }
   }
 

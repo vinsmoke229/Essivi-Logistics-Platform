@@ -24,64 +24,89 @@ def start_tour():
     data = request.get_json() or {}
     print(f"📥 START TOUR DATA: {data}") # Debug data reception
 
-    # Récupérer les quantités à charger
-    vitale_to_load = int(data.get('stock_vitale', 0))
-    voltic_to_load = int(data.get('stock_voltic', 0))
+    # Récupérer les quantités à charger (MIXTE : Ancien + Nouveau)
+    items_to_load = data.get('items', [])
+    
+    # Rétrocompatibilité : Convertir anciens champs en items si items est vide
+    if not items_to_load:
+        vitale_old = int(data.get('stock_vitale', 0))
+        voltic_old = int(data.get('stock_voltic', 0))
+        if vitale_old > 0: items_to_load.append({"product_name": "Vitale", "quantity": vitale_old})
+        if voltic_old > 0: items_to_load.append({"product_name": "Voltic", "quantity": voltic_old})
+
+    # Log pour debug
+    print(f"📦 Stock to load: {items_to_load}")
 
     try:
-        # Vérifier si une tournée est déjà en cours
+        # Vérifier si une tournée est déjà en cours (Mode Récupération)
         active_tour = Tour.query.filter_by(agent_id=agent_id, end_time=None).first()
         if active_tour:
-            return jsonify({"msg": "Une tournée est déjà en cours", "tour_id": active_tour.id}), 400
+            print(f"⚠️ Tournée déjà active pour agent {agent_id}. Récupération ID: {active_tour.id}")
+            return jsonify({
+                "msg": "Tournée récupérée", 
+                "tour_id": active_tour.id,
+                "is_recovery": True
+            }), 200
         
-        # Vérifier le stock disponible en entrepôt
-        # Dynamic import to avoid circular dependency
+        # Vérifier le stock disponible dans l'entrepôt
         from app.models.sql_models import Product, StockItem
         
-        # Helper check stock
-        def check_stock(product_name, qty_needed):
-            if qty_needed <= 0: return True, ""
-            prod = Product.query.filter_by(name=product_name).first()
-            if not prod: return True, "" # Skip if product doesn't exist
-            stock = StockItem.query.filter_by(product_id=prod.id, location='Entrepôt Principal').first()
-            if not stock or stock.available_stock < qty_needed:
-                return False, f"Stock {product_name} insuffisant ({stock.available_stock if stock else 0} dispo)"
-            return True, ""
+        for item in items_to_load:
+            prod_name = item.get('product_name')
+            prod_id = item.get('product_id')
+            qty = int(item.get('quantity', 0))
+            
+            if qty <= 0: continue
 
-        ok, msg = check_stock('Vitale', vitale_to_load)
-        if not ok: return jsonify({"msg": msg}), 400
-        
-        ok, msg = check_stock('Voltic', voltic_to_load)
-        if not ok: return jsonify({"msg": msg}), 400
+            # Trouver le produit (par ID de préférence, sinon Nom)
+            product = None
+            if prod_id:
+                product = Product.query.get(prod_id)
+            elif prod_name:
+                product = Product.query.filter_by(name=prod_name).first()
+            
+            if not product:
+                print(f"❌ Product not found: {item}")
+                continue # Skip invalid product
+
+            # Vérifier stock
+            stock = StockItem.query.filter_by(product_id=product.id, location='Entrepôt Principal').first()
+            if not stock or stock.available_stock < qty:
+                msg = f"Stock insuffisant pour {product.name} ({stock.available_stock if stock else 0} dispo)"
+                print(f"❌ {msg}")
+                return jsonify({"msg": msg}), 400
 
         # Créer la tournée
         new_tour = Tour(
             agent_id=agent_id,
             start_lat=data.get('lat', 0.0),
             start_lng=data.get('lng', 0.0),
-            stock_vitale_loaded=vitale_to_load,
-            stock_voltic_loaded=voltic_to_load,
-            status='in_progress'
+            # Pour la rétrocompatibilité mobile (affichage), on peut remplir ces champs si Vitale/Voltic sont présents
+            stock_vitale_loaded=next((item['quantity'] for item in items_to_load if 'Vitale' in item.get('product_name', '')), 0),
+            stock_voltic_loaded=next((item['quantity'] for item in items_to_load if 'Voltic' in item.get('product_name', '')), 0),
+            status='in_progress',
+            start_time=datetime.utcnow()
         )
 
         db.session.add(new_tour)
         
-        # DÉDUIRE DU STOCK ENTREPÔT
-        if vitale_to_load > 0:
-            p = Product.query.filter_by(name='Vitale').first()
-            if p:
-                s = StockItem.query.filter_by(product_id=p.id, location='Entrepôt Principal').first()
-                if s: 
-                    s.available_stock -= vitale_to_load
-                    s.reserved_stock += vitale_to_load
-                
-        if voltic_to_load > 0:
-            p = Product.query.filter_by(name='Voltic').first()
-            if p:
-                s = StockItem.query.filter_by(product_id=p.id, location='Entrepôt Principal').first()
-                if s: 
-                    s.available_stock -= voltic_to_load
-                    s.reserved_stock += voltic_to_load
+        # DECREMENTER LE STOCK REEL
+        for item in items_to_load:
+            prod_id = item.get('product_id')
+            prod_name = item.get('product_name')
+            qty = int(item.get('quantity', 0))
+            
+            if qty <= 0: continue
+
+            product = None
+            if prod_id: product = Product.query.get(prod_id)
+            elif prod_name: product = Product.query.filter_by(name=prod_name).first()
+            
+            if product:
+                stock = StockItem.query.filter_by(product_id=product.id, location='Entrepôt Principal').first()
+                if stock:
+                    stock.available_stock -= qty
+                    stock.reserved_stock += qty
 
         db.session.commit()
         
@@ -91,16 +116,13 @@ def start_tour():
             action="TOUR_STARTED",
             entity_type="tour",
             entity_id=new_tour.id,
-            details=f"Tournée démarrée - Vitale: {vitale_to_load}, Voltic: {voltic_to_load}"
+            details=f"Tournée démarrée - Chargement: {items_to_load}"
         )
         
         return jsonify({
             "msg": "Tournée démarrée",
             "tour_id": new_tour.id,
-            "stock_loaded": {
-                "vitale": vitale_to_load,
-                "voltic": voltic_to_load
-            }
+            "stock_loaded": items_to_load
         }), 201
 
     except Exception as e:
@@ -134,6 +156,7 @@ def end_tour():
     tour.status = 'completed'
 
     # CALCUL AUTOMATIQUE DU BILAN
+    # ⚠️ IMPORTANT : On utilise end_time APRÈS l'avoir défini
     deliveries = Delivery.query.filter(
         Delivery.agent_id == agent_id,
         Delivery.date >= tour.start_time,
@@ -187,7 +210,7 @@ def end_tour():
         action="TOUR_COMPLETED",
         entity_type="tour",
         entity_id=tour.id,
-        details=f"Tournée terminée - Livraisons: {tour.total_deliveries}, Stock restitué: Vitale {vitale_restant}, Voltic {voltic_restant}"
+        details=f"Tournée terminée - Livraisons: {tour.total_deliveries}, Cash: {tour.total_cash_collected}, Stock restitué: Vitale {vitale_restant}, Voltic {voltic_restant}"
     )
 
     return jsonify({

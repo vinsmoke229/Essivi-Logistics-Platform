@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<UserModel> login(String identifier, String password);
-  Future<void> registerClient({required String name, required String phone, required String address, String? pin});
+  Future<UserModel?> registerClient({required String name, required String phone, required String address, String? responsibleName, String? pin});
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -41,40 +41,49 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<void> registerClient({
+  Future<UserModel?> registerClient({
     required String name,
     required String phone,
     required String address,
+    String? responsibleName,
     String? pin,
   }) async {
     try {
       print("🔍 DEBUG - AuthRemoteDataSourceImpl: registerClient appelé");
-      print("Nom: $name");
-      print("Téléphone: $phone");
-      print("Adresse: $address");
-      print("PIN: $pin");
       
       final data = {
         'name': name,
         'phone': phone,
         'address': address,
+        'responsible_name': responsibleName ?? '',
       };
       
-      // Ajouter le PIN s'il est fourni
       if (pin != null && pin.isNotEmpty) {
         data['pin'] = pin;
       }
-      
-      print("🔍 DEBUG - Données envoyées: $data");
       
       final response = await apiClient.dio.post(
         ApiConstants.clientsEndpoint,
         data: data,
       );
       
-      print("🔍 DEBUG - Response status: ${response.statusCode}");
-      print("🔍 DEBUG - Response data: ${response.data}");
-      
+      if (response.statusCode == 201) {
+        final resData = response.data;
+        print("🔍 DEBUG - Inscription réussie: $resData");
+        
+        final token = resData['access_token'] ?? '';
+        print("✅ TOKEN REÇU APRÈS INSCRIPTION: $token");
+        
+        // On construit un UserModel à partir du retour (access_token, role, name, identifier)
+        return UserModel(
+          id: resData['id']?.toString() ?? '0',
+          name: resData['name'] ?? name,
+          accessToken: token,
+          role: resData['role'] ?? 'client',
+          identifier: resData['identifier'] ?? phone,
+        );
+      }
+      return null;
     } catch (e) {
       print("❌ DEBUG - AuthRemoteDataSourceImpl: Erreur registerClient: $e");
       rethrow;

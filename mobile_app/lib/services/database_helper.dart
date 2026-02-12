@@ -40,12 +40,19 @@ class DatabaseHelper {
       String path = join(await getDatabasesPath(), 'essivi_offline.db');
       return await openDatabase(
         path,
-        version: 2,
+        version: 3, // ⚠️ INCRÉMENTÉ POUR FORCER LA MIGRATION
         onCreate: _onCreate,
         onUpgrade: (db, oldVersion, newVersion) async {
+          // Migration v1 → v2
           if (oldVersion < 2) {
             await db.execute("ALTER TABLE deliveries ADD COLUMN photo_url TEXT;");
             await db.execute("ALTER TABLE deliveries ADD COLUMN signature_url TEXT;");
+          }
+          // Migration v2 → v3
+          if (oldVersion < 3) {
+            await db.execute("ALTER TABLE deliveries ADD COLUMN client_name TEXT;");
+            await db.execute("ALTER TABLE deliveries ADD COLUMN items_json TEXT;");
+            await db.execute("ALTER TABLE deliveries ADD COLUMN order_id INTEGER;");
           }
         },
       );
@@ -65,6 +72,9 @@ class DatabaseHelper {
       CREATE TABLE deliveries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_id INTEGER,
+        client_name TEXT,
+        items_json TEXT,
+        order_id INTEGER,
         quantity_vitale INTEGER,
         quantity_voltic INTEGER,
         amount REAL,

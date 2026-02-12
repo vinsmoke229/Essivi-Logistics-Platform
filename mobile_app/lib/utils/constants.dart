@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'dart:io';
 
 class ApiConstants {
-  // COLLE LE LIEN DE TA DERNIÈRE CAPTURE NGROK
-  static String baseUrl = kIsWeb 
-      ? 'http://localhost:5000/api' 
-      : 'https://unepauletted-fibrillar-flo.ngrok-free.dev/api'; 
+  static String get baseUrl {
+    if (kIsWeb) return 'http://localhost:5000/api';
+    // IP locale pour téléphone sur le même Wifi (méthode la plus stable pour le debug)
+    // Assurez-vous que cette IP est celle de votre PC sur le réseau partagé
+    return 'http://192.168.162.162:5000/api'; 
+  }
       
   static const String loginEndpoint = '/auth/login';
   static const String deliveriesEndpoint = '/deliveries';

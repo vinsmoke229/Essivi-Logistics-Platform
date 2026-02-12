@@ -336,31 +336,27 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                               child: Icon(Icons.history_toggle_off_rounded, size: 80, color: Colors.grey.shade200),
                             ),
                             const SizedBox(height: 24),
-                            Text(
-                              _deliveries.isEmpty 
-                                  ? "Aucune livraison effectuée" 
-                                  : "Aucune livraison ne correspond aux filtres",
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 16, fontWeight: FontWeight.bold)
-                            ),
-                            if (_deliveries.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _clearFilters,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0F172A),
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: const Text("Effacer les filtres"),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 32),
+                              child: Text(
+                                _deliveries.isEmpty 
+                                    ? "Aucune livraison trouvée ou erreur réseau" 
+                                    : "Aucune livraison ne correspond aux filtres",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey.shade400, fontSize: 16, fontWeight: FontWeight.bold)
                               ),
-                            ],
-                            const SizedBox(height: 16),
-                            ElevatedButton(
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
                               onPressed: _loadHistory,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text("🔄 RÉESSAYER"),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0F172A),
                                 foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              child: const Text("Actualiser"),
                             ),
                           ],
                         ),
@@ -685,6 +681,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             color: color,
           ),
         ),
+        const SizedBox(height: 4),
         const SizedBox(height: 4),
         Text(
           label,

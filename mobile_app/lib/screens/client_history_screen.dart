@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../presentation/providers/data_service_provider.dart';
 
 class ClientHistoryScreen extends ConsumerStatefulWidget {
@@ -74,8 +77,10 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
     return [
       {
         "id": 1,
-        "quantity_vitale": 2,
-        "quantity_voltic": 3,
+        "items": [
+          {"product_name": "Vitale", "quantity": 2},
+          {"product_name": "Voltic", "quantity": 3}
+        ],
         "total_amount": 2500,
         "date": "2024-01-24T09:45:00",
         "status": "completed",
@@ -84,8 +89,10 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
       },
       {
         "id": 2,
-        "quantity_vitale": 1,
-        "quantity_voltic": 1,
+        "items": [
+          {"product_name": "Vitale", "quantity": 1},
+          {"product_name": "Voltic", "quantity": 1}
+        ],
         "total_amount": 1000,
         "date": "2024-01-23T14:30:00",
         "status": "completed",
@@ -93,6 +100,72 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
         "gps_lng": 1.235678
       },
     ];
+  }
+
+  Future<void> _generateAndPrintPdf() async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) => [
+          pw.Header(
+            level: 0,
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text("RECEPISSE D'HISTORIQUE - ESSIVI Sarl", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 18)),
+                pw.Text(DateTime.now().toString().substring(0, 16)),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 20),
+          pw.Text("Historique des livraisons pour le client : ${_orders.isNotEmpty ? 'Client ESSIVI' : 'Utilisateur'}", 
+            style: pw.TextStyle(fontSize: 14)),
+          pw.SizedBox(height: 20),
+          pw.Table.fromTextArray(
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey900),
+            headers: ['ID', 'Date', 'Type', 'Statut', 'Montant (F)'],
+            data: [
+              ..._orders.map((o) => [
+                o['id'].toString(),
+                _formatDate(o['created_at']),
+                'Commande',
+                o['status'],
+                o['total_amount'].toString(),
+              ]),
+              ..._deliveries.map((d) => [
+                d['id'].toString(),
+                _formatDate(d['date']),
+                'Livraison',
+                d['status'],
+                d['total_amount'].toString(),
+              ]),
+            ],
+          ),
+          pw.SizedBox(height: 30),
+          pw.Divider(),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              "Total cumulé: ${[..._orders, ..._deliveries].fold(0.0, (sum, item) {
+                final amt = item['total_amount'];
+                double val = 0.0;
+                if (amt is num) val = amt.toDouble();
+                else if (amt is String) val = double.tryParse(amt) ?? 0.0;
+                return sum + val;
+              }).toStringAsFixed(0)} F CFA",
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          pw.SizedBox(height: 50),
+          pw.Center(child: pw.Text("Merci pour votre confiance en ESSIVI Sarl", style: pw.TextStyle(fontStyle: pw.FontStyle.italic))),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
   @override
@@ -109,7 +182,11 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Génération du PDF...")));
+              if (_orders.isEmpty && _deliveries.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Aucune donnée à exporter")));
+                return;
+              }
+              _generateAndPrintPdf();
             },
             tooltip: "Exporter Rapport",
           ),
@@ -364,10 +441,14 @@ class _ClientHistoryScreenState extends ConsumerState<ClientHistoryScreen> {
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  children: (delivery['items'] as List? ?? []).map((i) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _buildQuantityBadge(i['product_name'], i['quantity'], Colors.blue),
-                  )).toList(),
+                  children: (delivery['items'] as List? ?? []).map((item) {
+                    final pName = item['product_name'] ?? 'Produit';
+                    final qty = item['quantity'] ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildQuantityBadge(pName, qty is int ? qty : int.tryParse(qty.toString()) ?? 0, Colors.blue),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 12),
                 Row(

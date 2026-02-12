@@ -46,24 +46,36 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-    
     // On envoie les coordonnées capturées par le téléphone
-    final success = await ref.read(dataServiceProvider).createClient(
-      name: _nameController.text,
-      responsible: _responsibleController.text,
-      phone: _phoneController.text,
-      address: _addressController.text,
-      lat: _capturedPosition!.latitude,
-      lng: _capturedPosition!.longitude
-    );
+    try {
+      final success = await ref.read(dataServiceProvider).createClient(
+        name: _nameController.text.trim(),
+        responsible: _responsibleController.text.trim(), // PASSAGE RÉEL
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
+        lat: _capturedPosition!.latitude,
+        lng: _capturedPosition!.longitude
+      );
 
-    setState(() => _isLoading = false);
-
-    if (success) {
       if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Client IAI enregistré avec succès !")));
+      setState(() => _isLoading = false);
+
+      if (success) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Client IAI enregistré avec succès !"), backgroundColor: Colors.green)
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Échec de l'enregistrement"), backgroundColor: Colors.red)
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur : $e"), backgroundColor: Colors.red)
+      );
     }
   }
 
@@ -90,14 +102,40 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: "Nom Boutique")),
-              TextFormField(controller: _phoneController, decoration: const InputDecoration(labelText: "Téléphone")),
-              TextFormField(controller: _addressController, decoration: const InputDecoration(labelText: "Quartier")),
+              TextFormField(
+                controller: _nameController, 
+                decoration: const InputDecoration(labelText: "Nom Boutique / Point de Vente", border: OutlineInputBorder()),
+                validator: (v) => v!.isEmpty ? "Nom requis" : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _responsibleController, 
+                decoration: const InputDecoration(labelText: "Nom du Responsable / Gérant", border: OutlineInputBorder()),
+                validator: (v) => v!.isEmpty ? "Nom du Responsable requis" : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _phoneController, 
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: "Téléphone", border: OutlineInputBorder()),
+                validator: (v) => v!.isEmpty ? "Téléphone requis" : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _addressController, 
+                decoration: const InputDecoration(labelText: "Quartier / Adresse", border: OutlineInputBorder()),
+              ),
               const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: _isLoading ? null : _submit,
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                child: _isLoading ? const CircularProgressIndicator() : const Text("ENREGISTRER CE POINT DE VENTE"),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: Colors.blue[800],
+                  foregroundColor: Colors.white
+                ),
+                child: _isLoading 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                  : const Text("ENREGISTRER CE POINT DE VENTE", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),

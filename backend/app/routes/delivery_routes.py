@@ -11,6 +11,9 @@ import os
 
 delivery_bp = Blueprint('deliveries', __name__, url_prefix='/api/deliveries')
 
+# Configuration du dossier d'images
+UPLOAD_DELIVERY_FOLDER = 'uploads/deliveries'
+
 # Helper pour obtenir le chemin absolu du dossier uploads deliveries
 def get_delivery_upload_path():
     return os.path.abspath(os.path.join(current_app.root_path, '..', 'uploads', 'deliveries'))
@@ -29,21 +32,31 @@ def format_url(url):
 
 def save_base64_image(base64_str, prefix):
     if not base64_str or not base64_str.startswith('data:image'):
-        return base64_str # Probablement déjà une URL ou un chemin
+        return base64_str 
     
     try:
-        format, imgstr = base64_str.split(';base64,')
-        ext = format.split('/')[-1]
+        # S'assurer que le dossier existe
+        upload_path = ensure_delivery_upload_dir()
+        
+        format_part, imgstr = base64_str.split(';base64,')
+        ext = format_part.split('/')[-1]
+        
+        # Sécurité : Limiter les extensions
+        if ext.lower() not in ['png', 'jpg', 'jpeg']:
+            ext = 'png'
+            
         filename = f"{prefix}_{uuid.uuid4().hex}.{ext}"
-        filepath = os.path.join(UPLOAD_DELIVERY_FOLDER, filename)
+        filepath = os.path.join(upload_path, filename)
         
         with open(filepath, "wb") as fh:
             fh.write(base64.b64decode(imgstr))
             
+        # On retourne le chemin relatif pour la DB
         return f"uploads/deliveries/{filename}"
     except Exception as e:
-        print(f"❌ Erreur décodage image: {e}")
-        return None
+        print(f"❌ Erreur critique décodage image: {e}")
+        # On lève une exception pour forcer le rollback du parent
+        raise ValueError(f"Échec de l'enregistrement de l'image {prefix}")
 
 # --- 1. ENREGISTRER UNE LIVRAISON (Mobile Agent) ---
 @delivery_bp.route('/', methods=['POST'])
@@ -160,6 +173,20 @@ def create_delivery():
         new_delivery.total_amount = calculated_total
         
         db.session.commit()
+        
+        # 🔴 CLÔTURE DE MISSION : Si la livraison provient d'une commande assignée
+        order_id = data.get('order_id')
+        if order_id:
+            try:
+                from app.models.sql_models import Order
+                order = Order.query.get(int(order_id))
+                if order:
+                    order.status = 'completed'
+                    db.session.commit()
+                    print(f"✅ Mission #{order_id} clôturée automatiquement")
+            except Exception as e:
+                print(f"⚠️ Erreur clôture mission #{order_id}: {e}")
+                # Non bloquant : la livraison est déjà enregistrée
  
         # Logs de sécurité (MongoDB + SQL)
         log_activity(user_id, user_type, "CREATE_DELIVERY", {"id": new_delivery.id, "amount": calculated_total})
@@ -192,8 +219,9 @@ def create_delivery():
             "msg": "Livraison enregistrée avec succès", 
             "id": new_delivery.id,
             "total_amount": new_delivery.total_amount,
-            "date": new_delivery.date.strftime("%Y-%m-%d %H:%M:%S")
-        }), 200
+            "date": new_delivery.date.strftime("%Y-%m-%d %H:%M:%S"),
+            "order_completed": bool(order_id)  # Indique si une mission a été clôturée
+        }), 201
 
     except Exception as e:
         db.session.rollback()
@@ -249,7 +277,8 @@ def get_deliveries():
             "gps_lng": d.gps_lng_delivery,
             "photo_url": format_url(d.photo_url),
             "signature_url": format_url(d.signature_url),
-            "status": d.status
+            "status": d.status,
+            "date_iso": d.date.isoformat()  # ✅ Format ISO robuste pour le parsing
         })
     return jsonify(result), 200
 

@@ -86,13 +86,23 @@ def create_client():
             details={"name": new_client.name, "phone": new_client.phone}
         )
         
-        return jsonify({"msg": f"Client ajouté avec succès. Code PIN par défaut: {pin_to_hash}", "id": new_client.id}), 201
+        from flask_jwt_extended import create_access_token
+        access_token = create_access_token(identity=str(new_client.id), additional_claims={"type": "client", "role": "client", "name": new_client.name})
+        
+        return jsonify({
+            "msg": "Client ajouté avec succès", 
+            "id": new_client.id,
+            "access_token": access_token,
+            "role": "client",
+            "name": new_client.name,
+            "identifier": new_client.phone
+        }), 201
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"msg": "Cet email ou ce téléphone est déjà utilisé"}), 409
+        return jsonify({"msg": "Ce numéro est déjà enregistré"}), 409
     except Exception as e:
         db.session.rollback()
-        return jsonify({"msg": f"Erreur : {str(e)}"}), 500
+        return jsonify({"msg": "Erreur de connexion au serveur"}), 500
 
 # --- 2. LISTER LES CLIENTS (Uniquement actifs) ---
 @client_bp.route('/', methods=['GET'])
@@ -138,7 +148,33 @@ def get_client(id):
         }
     }), 200
 
+# --- PROFIL DU CLIENT CONNECTÉ ---
+@client_bp.route('/profile', methods=['GET'])
+@jwt_required()
+def get_client_profile():
+    try:
+        client_id = int(get_jwt_identity())
+        client = Client.query.get_or_404(client_id)
+        
+        return jsonify({
+            "id": client.id,
+            "name": client.name,
+            "responsible_name": client.responsible_name,
+            "phone": client.phone,
+            "email": client.email or "N/A",
+            "address": client.address or "Indéfinie",
+            "photo_url": format_url(client.photo_url),
+            "created_at": client.created_at.isoformat() if client.created_at else None,
+            "stats": {
+                "total_deliveries": len(client.deliveries),
+                "total_orders": len(client.orders)
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({"msg": "Erreur profil client", "error": str(e)}), 500
+
 # --- 4. MISE À JOUR CLIENT ---
+
 @client_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_client(id):
@@ -229,10 +265,45 @@ def get_client_photo(filename):
     upload_dir = get_upload_path()
     filepath = os.path.join(upload_dir, filename)
     
-    # Debug log (optionnel, à commenter en prod)
-    # print(f"Tentative d'accès à la photo: {filepath}")
-    
     if os.path.exists(filepath):
         return send_file(filepath)
     
     return jsonify({"msg": "Photo non trouvée"}), 404
+
+# --- 7. BUSINESS INTELLIGENCE : STATS CLIENT ---
+@client_bp.route('/<int:id>/stats', methods=['GET'])
+@jwt_required()
+def get_client_stats(id):
+    from app.models.sql_models import Delivery
+    client = Client.query.get_or_404(id)
+    
+    # 1. Calcul Panier Moyen (Uniquement livraisons terminées)
+    deliveries = Delivery.query.filter_by(client_id=id, status='completed').order_by(Delivery.date.asc()).all()
+    count = len(deliveries)
+    
+    total_spent = sum(d.total_amount for d in deliveries)
+    panier_moyen = total_spent / count if count > 0 else 0
+    
+    # 2. Calcul Fréquence (Moyenne de jours entre livraisons)
+    frequence = 0
+    if count >= 2:
+        date_first = deliveries[0].date
+        date_last = deliveries[-1].date
+        delta_days = (date_last - date_first).days
+        frequence = delta_days / count 
+        
+    return jsonify({
+        "info": {
+            "id": client.id,
+            "name": client.name,
+            "responsible_name": client.responsible_name,
+            "phone": client.phone
+        },
+        "bi": {
+            "panier_moyen": round(panier_moyen, 2),
+            "frequence": round(frequence, 1),
+            "solde": 0, # Initialisé à 0 par défaut
+            "total_livraisons": count,
+            "total_depense": total_spent
+        }
+    }), 200

@@ -4,17 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:async';
-import '../widgets/session_timeout_wrapper.dart';
-import '../widgets/sync_status_indicator.dart';
-import '../presentation/providers/data_service_provider.dart';
-import '../presentation/providers/auth_provider.dart';
-import '../services/location_service.dart';
-import 'login_screen.dart';
-import 'simple_delivery_screen.dart';
-import 'agent_profile_screen.dart';
-import 'history_screen.dart';
-import 'add_client_screen.dart';
-import 'performance_screen.dart';
+import 'package:mobile_app/widgets/session_timeout_wrapper.dart';
+import 'package:mobile_app/widgets/sync_status_indicator.dart';
+import 'package:mobile_app/presentation/providers/data_service_provider.dart';
+import 'package:mobile_app/presentation/providers/auth_provider.dart';
+import 'package:mobile_app/services/location_service.dart';
+import 'package:mobile_app/screens/login_screen.dart';
+import 'package:mobile_app/screens/simple_delivery_screen.dart';
+import 'package:mobile_app/screens/agent_profile_screen.dart';
+import 'package:mobile_app/screens/history_screen.dart';
+import 'package:mobile_app/screens/add_client_screen.dart';
+import 'package:mobile_app/screens/performance_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -54,12 +54,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  void _loadIdentity() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _userName = prefs.getString('name') ?? "Agent";
+      });
+    }
+  }
+
   void _checkTourStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isTourActive = prefs.getBool('isTourActive') ?? false;
-      _userName = prefs.getString('name') ?? "Utilisateur";
-    });
+    if (mounted) {
+      setState(() {
+        _isTourActive = prefs.getBool('isTourActive') ?? false;
+      });
+    }
+    
+    // Identity load
+    _loadIdentity();
 
     if (_isTourActive) {
       _startTracking();
@@ -108,6 +121,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _toggleTour() async {
+    // Si la tournée est active, on veut la terminer (pas de stock à charger)
+    if (_isTourActive) {
+      _processTourAction(null); // null = Fin de tournée
+      return;
+    }
+
+    // Si on veut DÉMARRER, on affiche d'abord le dialogue de stock
+    final stockItems = await showDialog<List<Map<String, dynamic>>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const LoadStockDialog(),
+    );
+
+    if (stockItems != null) {
+      _processTourAction(stockItems);
+    }
+  }
+
+  void _processTourAction(List<Map<String, dynamic>>? stockItems) async {
     setState(() => _isLoading = true);
     
     Position position;
@@ -123,8 +155,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final prefs = await SharedPreferences.getInstance();
 
     if (!_isTourActive) {
-      // DÉMARRER
-      final tourId = await ref.read(dataServiceProvider).startTour(position.latitude, position.longitude);
+      // DÉMARRER avec le stock
+      final tourId = await ref.read(dataServiceProvider).startTour(
+        position.latitude, 
+        position.longitude,
+        items: stockItems ?? [] // On passe les items
+      );
+      
       if (tourId != null) {
         await prefs.setBool('isTourActive', true);
         await prefs.setInt('currentTourId', tourId);
@@ -188,6 +225,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ... (Reste de la méthode build inchangé)
     return SessionTimeoutWrapper(
       timeoutDuration: const Duration(minutes: 5),
       onTimeout: () {
@@ -228,7 +266,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 24),
 
               GestureDetector(
-                onTap: _isLoading ? null : _toggleTour,
+                onTap: _isLoading ? null : _toggleTour, // Utilise la nouvelle méthode
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
@@ -251,7 +289,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       const SizedBox(height: 8),
                       Text(
                         "$_missionCount ARTICLES À LIVRER",
-                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12, fontWeight: FontWeight.w500),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -341,6 +379,118 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class LoadStockDialog extends ConsumerStatefulWidget {
+  const LoadStockDialog({super.key});
+
+  @override
+  ConsumerState<LoadStockDialog> createState() => _LoadStockDialogState();
+}
+
+class _LoadStockDialogState extends ConsumerState<LoadStockDialog> {
+  List<dynamic> _products = [];
+  Map<int, int> _quantities = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  void _loadProducts() async {
+    try {
+      final products = await ref.read(dataServiceProvider).getProducts();
+      if (mounted) {
+        setState(() {
+          _products = products;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("📦 Chargement du Stock"),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _products.isEmpty
+                ? const Text("Aucun produit disponible.")
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _products.length,
+                    itemBuilder: (context, index) {
+                      final product = _products[index];
+                      final productId = product['id'];
+                      return ListTile(
+                        title: Text(product['name']),
+                        subtitle: Text("En stock: ${product['stock_quantity'] ?? '?'}"),
+                        trailing: SizedBox(
+                          width: 120,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle, color: Colors.red),
+                                onPressed: () {
+                                  setState(() {
+                                    final current = _quantities[productId] ?? 0;
+                                    if (current > 0) _quantities[productId] = current - 1;
+                                  });
+                                },
+                              ),
+                              Text("${_quantities[productId] ?? 0}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle, color: Colors.green),
+                                onPressed: () {
+                                  setState(() {
+                                    final current = _quantities[productId] ?? 0;
+                                    _quantities[productId] = current + 1;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context), // Annuler (retourne null)
+          child: const Text("ANNULER"),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Créer la liste des items à charger
+            List<Map<String, dynamic>> items = [];
+            _quantities.forEach((id, qty) {
+              if (qty > 0) {
+                // Trouver le produit pour avoir son nom si besoin, ou juste envoyer ID
+                final product = _products.firstWhere((p) => p['id'] == id, orElse: () => {});
+                items.add({
+                  "product_id": id,
+                  "quantity": qty,
+                  "product_name": product['name'] ?? "Produit #$id" 
+                });
+              }
+            });
+            Navigator.pop(context, items);
+          },
+          child: const Text("DÉMARRER"),
+        ),
+      ],
     );
   }
 }

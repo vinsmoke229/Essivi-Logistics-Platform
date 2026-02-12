@@ -21,12 +21,13 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // Sauvegarder le token dans le téléphone (Session persistante)
+        // 💾 SAUVEGARDE RÉELLE ET STRICTE (Fix Persistence)
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['access_token']);
-        await prefs.setString('role', data['role']);
+        await prefs.setString('auth_token', data['access_token']);
+        await prefs.setString('role', data['role']); 
         await prefs.setString('name', data['name'] ?? 'Utilisateur');
-        await prefs.setString('identifier', data['identifier'] ?? '');
+
+        print("💾 PERSISTENCE OK: ${data['role']} pour ${data['name']}");
         
         return {'success': true, 'data': data};
       } else {

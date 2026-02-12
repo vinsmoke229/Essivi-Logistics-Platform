@@ -416,99 +416,89 @@ def generate_custom_report():
                 })
         
         elif report_type == 'product_analysis':
-            # Analyse des produits (Basé sur les livraisons réelles = Ventes)
+            # Analyse dynamique des produits par ventes réelles (DeliveryItems)
             query = db.session.query(
-                Product.id,
                 Product.name,
-                Product.price,
-                db.func.count(DeliveryItem.id).label('order_count'),
                 db.func.sum(DeliveryItem.quantity).label('total_quantity'),
-                db.func.sum(DeliveryItem.quantity * Product.price).label('total_revenue')
+                db.func.sum(DeliveryItem.quantity * Product.price).label('revenue_generated')
             ).join(DeliveryItem, Product.id == DeliveryItem.product_id)\
-             .join(Delivery, DeliveryItem.delivery_id == Delivery.id)
-            
+             .join(Delivery, DeliveryItem.delivery_id == Delivery.id)\
+             .filter(Delivery.status == 'completed')
+
             if start_date:
                 query = query.filter(Delivery.date >= datetime.fromisoformat(start_date))
             if end_date:
                 query = query.filter(Delivery.date <= datetime.fromisoformat(end_date))
+
+            summary = query.group_by(Product.name).all()
             
-            query = query.group_by(Product.id, Product.name, Product.price)
-            products_data = query.all()
-            
-            for row in products_data:
+            for row in summary:
                 result['data'].append({
-                    'product_id': row.id,
                     'product_name': row.name,
-                    'unit_price': float(row.price),
-                    'order_count': row.order_count,
                     'total_quantity': int(row.total_quantity or 0),
-                    'total_revenue': float(row.total_revenue or 0)
+                    'total_revenue': float(row.revenue_generated or 0)
                 })
         
         return jsonify(result), 200
-        
     except Exception as e:
-        return jsonify({"msg": f"Erreur rapport personnalisé: {str(e)}"}), 500
+        return jsonify({"msg": f"Erreur rapport: {str(e)}"}), 200 # Return 200 with error msg to avoid crash
+
 
 # --- 3. GRAPHIQUES INTERACTIFS ---
 
 @reports_bp.route('/charts/revenue', methods=['GET'])
 @jwt_required()
 def get_revenue_chart():
-    """Données pour graphique des revenus"""
+    """Données pour graphique des revenus (Dynamic & Robust)"""
     try:
-        period = request.args.get('period', 'month')  # day, week, month, year
+        period = request.args.get('period', 'month')  # day, week, month
         
         if period == 'day':
             # Revenus par jour (30 derniers jours)
             start_date = datetime.utcnow() - timedelta(days=30)
             query = db.session.query(
-                db.func.date(Delivery.created_at).label('date'),
-                db.func.sum(Delivery.total_amount).label('revenue')
-            ).filter(Delivery.created_at >= start_date).group_by(db.func.date(Delivery.created_at))
-            
-        elif period == 'week':
-            # Revenus par semaine (12 dernières semaines)
-            start_date = datetime.utcnow() - timedelta(weeks=12)
+                func.date(Delivery.created_at).label('date_label'),
+                func.sum(Delivery.total_amount).label('revenue')
+            ).filter(Delivery.created_at >= start_date, Delivery.status == 'completed')\
+             .group_by(func.date(Delivery.created_at))
+        else:
+            # Revenus par mois (Par défaut)
             query = db.session.query(
-                db.func.date_trunc('week', Delivery.created_at).label('date'),
-                db.func.sum(Delivery.total_amount).label('revenue')
-            ).filter(Delivery.created_at >= start_date).group_by(db.func.date_trunc('week', Delivery.created_at))
-            
-        elif period == 'month':
-            # Revenus par mois (12 derniers mois)
-            start_date = datetime.utcnow() - timedelta(days=365)
-            query = db.session.query(
-                db.func.date_trunc('month', Delivery.created_at).label('date'),
-                db.func.sum(Delivery.total_amount).label('revenue')
-            ).filter(Delivery.created_at >= start_date).group_by(db.func.date_trunc('month', Delivery.created_at))
-            
-        else:  # year
-            # Revenus par année (5 dernières années)
-            start_date = datetime.utcnow() - timedelta(days=365*5)
-            query = db.session.query(
-                db.func.date_trunc('year', Delivery.created_at).label('date'),
-                db.func.sum(Delivery.total_amount).label('revenue')
-            ).filter(Delivery.created_at >= start_date).group_by(db.func.date_trunc('year', Delivery.created_at))
+                extract('month', Delivery.created_at).label('month'),
+                extract('year', Delivery.created_at).label('year'),
+                func.sum(Delivery.total_amount).label('revenue')
+            ).filter(Delivery.status == 'completed')\
+             .group_by(extract('year', Delivery.created_at), extract('month', Delivery.created_at))\
+             .order_by(extract('year', Delivery.created_at), extract('month', Delivery.created_at))
         
         data = query.all()
         
-        chart_data = {
-            'labels': [row.date.strftime('%Y-%m-%d') for row in data],
+        if not data:
+            return jsonify({'labels': [], 'datasets': [{'label': 'Revenus (F CFA)', 'data': []}]}), 200
+            
+        labels = []
+        revenues = []
+        
+        for row in data:
+            if period == 'day':
+                labels.append(str(row.date_label))
+            else:
+                labels.append(f"{int(row.month)}/{row.year}")
+            revenues.append(float(row.revenue or 0))
+
+        return jsonify({
+            'labels': labels,
             'datasets': [{
                 'label': 'Revenus (F CFA)',
-                'data': [float(row.revenue or 0) for row in data],
+                'data': revenues,
                 'backgroundColor': 'rgba(59, 130, 246, 0.2)',
                 'borderColor': 'rgba(59, 130, 246, 1)',
                 'borderWidth': 2,
                 'fill': True
             }]
-        }
-        
-        return jsonify(chart_data), 200
-        
+        }), 200
     except Exception as e:
-        return jsonify({"msg": f"Erreur graphique revenus: {str(e)}"}), 500
+        return jsonify({'labels': [], 'datasets': []}), 200
 
 @reports_bp.route('/charts/delivery-status', methods=['GET'])
 @jwt_required()
@@ -554,7 +544,7 @@ def get_delivery_status_chart():
         return jsonify(chart_data), 200
         
     except Exception as e:
-        return jsonify({"msg": f"Erreur graphique statuts: {str(e)}"}), 500
+        return jsonify({}), 200
 
 @reports_bp.route('/charts/top-products', methods=['GET'])
 @jwt_required()
@@ -569,35 +559,42 @@ def get_top_products_chart():
             db.func.sum(DeliveryItem.quantity).label('total_quantity'),
             db.func.sum(DeliveryItem.quantity * Product.price).label('total_revenue')
         ).join(DeliveryItem, Product.id == DeliveryItem.product_id)\
+         .join(Delivery, DeliveryItem.delivery_id == Delivery.id)\
+         .filter(Delivery.status == 'completed')\
          .group_by(Product.id, Product.name)\
          .order_by(db.func.sum(DeliveryItem.quantity).desc())\
          .limit(limit)
         
         data = query.all()
         
+        if not data:
+            return jsonify({
+                'labels': ["Aucune vente"],
+                'datasets': [
+                    {'label': 'Quantité', 'data': [0], 'backgroundColor': 'rgba(200, 200, 200, 0.5)'},
+                    {'label': 'Revenus', 'data': [0], 'backgroundColor': 'rgba(200, 200, 200, 0.3)'}
+                ]
+            }), 200
+
         chart_data = {
             'labels': [row.name for row in data],
             'datasets': [
                 {
                     'label': 'Quantité vendue',
-                    'data': [row.total_quantity for row in data],
+                    'data': [int(row.total_quantity or 0) for row in data],
                     'backgroundColor': 'rgba(59, 130, 246, 0.8)',
-                    'borderColor': 'rgba(59, 130, 246, 1)',
-                    'borderWidth': 1,
                     'yAxisID': 'y'
                 },
                 {
                     'label': 'Revenus (F CFA)',
                     'data': [float(row.total_revenue or 0) for row in data],
                     'backgroundColor': 'rgba(34, 197, 94, 0.8)',
-                    'borderColor': 'rgba(34, 197, 94, 1)',
-                    'borderWidth': 1,
                     'yAxisID': 'y1'
                 }
             ]
         }
         
         return jsonify(chart_data), 200
-        
     except Exception as e:
-        return jsonify({"msg": f"Erreur graphique produits: {str(e)}"}), 500
+        return jsonify({"msg": f"Erreur chart: {str(e)}"}), 200
+

@@ -31,6 +31,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
 
   void _checkConnectivity() async {
     final result = await Connectivity().checkConnectivity();
+    if (!mounted) return;
     setState(() {
       _isOnline = result != ConnectivityResult.none;
     });
@@ -39,6 +40,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
   void _checkPendingSync() async {
     try {
       final unsynced = await ref.read(dataServiceProvider).getUnsyncedDeliveries();
+      if (!mounted) return;
       setState(() {
         _pendingSync = unsynced.length;
       });
@@ -49,8 +51,10 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
 
   void _syncNow() async {
     if (_isOnline && _pendingSync > 0) {
+      if (!mounted) return;
       setState(() => _isSyncing = true);
       await ref.read(dataServiceProvider).syncOfflineDeliveries();
+      if (!mounted) return;
       _checkPendingSync();
       setState(() => _isSyncing = false);
     }

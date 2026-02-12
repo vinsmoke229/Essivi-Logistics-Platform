@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
@@ -13,24 +14,7 @@ class DataService {
   // Helper pour les headers avec Token
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token'); // Utiliser la clé directement
-    print("🔍 DEBUG - Token récupéré (direct): ${token != null ? 'OUI' : 'NON'}");
-    print("🔍 DEBUG - Clé recherchée: auth_token");
-    if (token != null) {
-      print("🔍 DEBUG - Token (premiers 20 chars): ${token.substring(0, token.length > 20 ? 20 : token.length)}");
-    } else {
-      // Debug : lister toutes les clés disponibles
-      final keys = prefs.getKeys();
-      print("🔍 DEBUG - Clés disponibles dans SharedPreferences: $keys");
-      for (String key in keys) {
-        final value = prefs.getString(key);
-        if (value != null && value.length > 20) {
-          print("🔍 DEBUG - $key: ${value.substring(0, 20)}...");
-        } else {
-          print("🔍 DEBUG - $key: $value");
-        }
-      }
-    }
+    final token = prefs.getString('auth_token');
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -39,40 +23,45 @@ class DataService {
   
   // --- RÉCUPÉRER LES MISSIONS DE L'AGENT ---
   Future<List<dynamic>> getMyMissions() async {
+    // Petit délai pour laisser l'UI respirer au démarrage
+    await Future.delayed(const Duration(milliseconds: 500));
     final url = Uri.parse('${ApiConstants.baseUrl}/orders/my-missions');
     final headers = await _getHeaders();
 
     try {
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
+      throw Exception('Erreur serveur (${response.statusCode})');
+    } on TimeoutException {
+      throw Exception('Serveur injoignable, le réseau est lent.');
     } catch (e) {
-      print("Erreur missions: $e");
+      throw Exception('Erreur de connexion: $e');
     }
-    return [];
   }
 
   // 1. Récupérer la liste des Clients
   Future<List<dynamic>> getClients() async {
+    // Petit délai pour laisser l'UI respirer
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // D'abord renvoyer le cache pour affichage instantané, puis rafraîchir
     final url = Uri.parse('${ApiConstants.baseUrl}/clients/');
     final headers = await _getHeaders();
 
     try {
-      final connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult == ConnectivityResult.none) {
-        return [];
-      }
-
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
         throw Exception('Erreur chargement clients');
       }
+    } on TimeoutException {
+      throw Exception('Serveur injoignable, le réseau est lent.');
     } catch (e) {
       print("Erreur API Clients: $e");
-      return [];
+      rethrow;
     }
   }
 
@@ -85,11 +74,10 @@ class DataService {
     required double gpsLng,
     Uint8List? photoBytes,
     Uint8List? signatureBytes,
-    String? photoUrl, // Chemin ou Base64 (pour la synchro)
+    String? photoUrl,
     String? signatureUrl,
     bool isSyncing = false,
   }) async {
-    // 1. Préparation des URLs / Base64
     String? finalPhoto = photoUrl;
     if (photoBytes != null) {
       finalPhoto = 'data:image/jpeg;base64,${base64Encode(photoBytes)}';
@@ -100,64 +88,58 @@ class DataService {
       finalSignature = 'data:image/png;base64,${base64Encode(signatureBytes)}';
     }
 
-    final connectivityResult = await Connectivity().checkConnectivity();
-
-    if (connectivityResult == ConnectivityResult.none) {
-      if (isSyncing) return false; 
-      
-      print("Pas d'internet, sauvegarde locale (Base64)...");
-      await _dbHelper.insertDelivery({
-        'client_id': clientId,
-        'items_json': jsonEncode(items), 
-        'amount': amount,
-        'gps_lat': gpsLat,
-        'gps_lng': gpsLng,
-        'photo_url': finalPhoto, // On stocke le Base64
-        'signature_url': finalSignature,
-        'created_at': DateTime.now().toIso8601String(),
-        'is_synced': 0
-      });
-      return true; 
-    }
-
-    final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deliveriesEndpoint}/');
-    final headers = await _getHeaders();
-    
-    final body = jsonEncode({
-      "client_id": clientId,
-      "items": items,
-      "total_amount": amount,
-      "gps_lat": gpsLat,
-      "gps_lng": gpsLng,
-      "photo_url": finalPhoto,
-      "signature_url": finalSignature
-    });
-
     try {
-      final response = await http.post(url, headers: headers, body: body);
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult == ConnectivityResult.none) {
+        if (isSyncing) return false; 
+        print("SAD - Pas d'internet, sauvegarde locale...");
+        await _saveLocally(clientId, items, amount, gpsLat, gpsLng, finalPhoto, finalSignature);
+        return true; 
+      }
+
+      final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deliveriesEndpoint}/');
+      final headers = await _getHeaders();
+      
+      final body = jsonEncode({
+        "client_id": clientId,
+        "items": items,
+        "total_amount": amount,
+        "gps_lat": gpsLat,
+        "gps_lng": gpsLng,
+        "photo_url": finalPhoto,
+        "signature_url": finalSignature
+      });
+
+      final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 30));
       if (response.statusCode == 201) {
         return true;
       } else {
         print("Erreur API (${response.statusCode}): ${response.body}");
         return false;
       }
+    } on TimeoutException {
+      if (!isSyncing) await _saveLocally(clientId, items, amount, gpsLat, gpsLng, finalPhoto, finalSignature);
+      return !isSyncing;
     } catch (e) {
       if (isSyncing) return false;
-      
-      print("Erreur réseau, sauvegarde locale (Base64): $e");
-      await _dbHelper.insertDelivery({
-        'client_id': clientId,
-        'items_json': jsonEncode(items),
-        'amount': amount,
-        'gps_lat': gpsLat,
-        'gps_lng': gpsLng,
-        'photo_url': finalPhoto,
-        'signature_url': finalSignature,
-        'created_at': DateTime.now().toIso8601String(),
-        'is_synced': 0
-      });
+      print("Erreur réseau, sauvegarde locale: $e");
+      await _saveLocally(clientId, items, amount, gpsLat, gpsLng, finalPhoto, finalSignature);
       return true;
     }
+  }
+
+  Future<void> _saveLocally(int clientId, List<Map<String, dynamic>> items, double amount, double gpsLat, double gpsLng, String? photo, String? signature) async {
+    await _dbHelper.insertDelivery({
+      'client_id': clientId,
+      'items_json': jsonEncode(items), 
+      'amount': amount,
+      'gps_lat': gpsLat,
+      'gps_lng': gpsLng,
+      'photo_url': photo,
+      'signature_url': signature,
+      'created_at': DateTime.now().toIso8601String(),
+      'is_synced': 0
+    });
   }
 
   // Synchronisation des données locales vers le serveur
@@ -168,20 +150,11 @@ class DataService {
     final unsynced = await _dbHelper.getUnsyncedDeliveries();
     if (unsynced.isEmpty) return;
 
-    print("Début Synchronisation (${unsynced.length} livraisons)...");
-
     for (var delivery in unsynced) {
       try {
-        print("Tentative sync livraison #${delivery['id']}");
-        
-        // Conversion Legacy DB -> Items
         List<Map<String, dynamic>> items = [];
         if (delivery['items_json'] != null) {
              items = List<Map<String, dynamic>>.from(jsonDecode(delivery['items_json']));
-        } else {
-             // Fallback pour vieilles données non migrées
-             if ((delivery['quantity_vitale'] ?? 0) > 0) items.add({'product_id': 1, 'quantity': delivery['quantity_vitale']});
-             if ((delivery['quantity_voltic'] ?? 0) > 0) items.add({'product_id': 2, 'quantity': delivery['quantity_voltic']});
         }
 
         bool success = await sendDelivery(
@@ -197,28 +170,16 @@ class DataService {
 
         if (success) {
           await _dbHelper.markAsSynced(int.parse(delivery['id'].toString()));
-          print("✅ Livraison #${delivery['id']} synchronisée.");
-        } else {
-          print("⚠️ Échec sync livraison #${delivery['id']}");
         }
       } catch (e) {
-        print("❌ Erreur critique sync livraison #${delivery['id']}: $e");
-        // On continue la boucle pour les autres livraisons
+        print("Sync error: $e");
       }
     }
-    
     await _dbHelper.deleteSyncedDeliveries();
-    print("Synchronisation terminée.");
   }
 
-  // Récupérer les livraisons non synchronisées pour l'indicateur
   Future<List<Map<String, dynamic>>> getUnsyncedDeliveries() async {
-    try {
-      return await _dbHelper.getUnsyncedDeliveries();
-    } catch (e) {
-      print("Erreur getUnsyncedDeliveries: $e");
-      return [];
-    }
+    return await _dbHelper.getUnsyncedDeliveries();
   }
 
   // CLIENT API METHODS
@@ -226,14 +187,13 @@ class DataService {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/client/orders');
       final headers = await _getHeaders();
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List<dynamic>;
       }
       return [];
     } catch (e) {
-      print("Erreur getClientOrders: $e");
-      return [];
+      throw Exception('Serveur injoignable, vérifiez votre connexion.');
     }
   }
 
@@ -241,14 +201,13 @@ class DataService {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/client/deliveries');
       final headers = await _getHeaders();
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List<dynamic>;
       }
       return [];
     } catch (e) {
-      print("Erreur getClientDeliveries: $e");
-      return [];
+      throw Exception('Serveur injoignable, vérifiez votre connexion.');
     }
   }
 
@@ -256,18 +215,16 @@ class DataService {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/client/invoices');
       final headers = await _getHeaders();
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List<dynamic>;
       }
       return [];
     } catch (e) {
-      print("Erreur getClientInvoices: $e");
-      return [];
+      throw Exception('Serveur injoignable, vérifiez votre connexion.');
     }
   }
 
-  // 3. Créer un nouveau client
   Future<bool> createClient({
     required String name,
     required String responsible,
@@ -278,7 +235,6 @@ class DataService {
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/clients/');
     final headers = await _getHeaders();
-    
     final body = jsonEncode({
       "name": name,
       "responsible_name": responsible,
@@ -289,83 +245,78 @@ class DataService {
     });
 
     try {
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 30));
       return response.statusCode == 201;
     } catch (e) {
-      print("Erreur création client: $e");
       return false;
     }
   }
 
-  // 4. Récupérer l'historique des livraisons de l'agent connecté
   Future<List<dynamic>> getMyDeliveries() async {
     final url = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.deliveriesEndpoint}/');
     final headers = await _getHeaders();
 
     try {
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
-      } else {
-        return [];
       }
-    } catch (e) {
-      print("Erreur historique: $e");
       return [];
+    } catch (e) {
+      throw Exception('Serveur injoignable, vérifiez votre connexion.');
     }
   }
 
-  // 5. Démarrer Tournée
-  Future<int?> startTour(double lat, double lng) async {
+  Future<int?> startTour(double lat, double lng, {List<Map<String, dynamic>> items = const []}) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/tours/start');
     final headers = await _getHeaders();
-    final body = jsonEncode({"lat": lat, "lng": lng});
+    final body = jsonEncode({
+      "lat": lat, 
+      "lng": lng,
+      "items": items // ✅ Envoi de la liste des items
+    });
 
     try {
-      final response = await http.post(url, headers: headers, body: body);
-      if (response.statusCode == 201 || response.statusCode == 400) {
+      final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 30));
+      // ✅ 200 = Success (Recovery), 201 = Success (Created), 400 = Error but maybe handled
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return data['tour_id'];
       }
     } catch (e) {
-      print("Erreur Start Tour: $e");
+      print("Tour start error: $e");
     }
     return null;
   }
 
-  // 6. Terminer Tournée
   Future<Map<String, dynamic>?> endTour(double lat, double lng) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/tours/end');
     final headers = await _getHeaders();
     final body = jsonEncode({"lat": lat, "lng": lng});
 
     try {
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
     } catch (e) {
-      print("Erreur End Tour: $e");
+      print("Tour end error: $e");
     }
     return null;
   }
 
-  // 1.1 Récupérer la liste des Produits
   Future<List<dynamic>> getProducts() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/products/');
     final headers = await _getHeaders();
     try {
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-    } catch (e) {
-      print("Erreur fetch products: $e");
-    }
+    } catch (e) {}
     return [];
   }
 
-  // 7. Passer une Commande (Client)
   Future<bool> sendOrder({
     List<Map<String, dynamic>> items = const [],
     String? preferredTime,
@@ -380,51 +331,45 @@ class DataService {
     });
 
     try {
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await http.post(url, headers: headers, body: body).timeout(const Duration(seconds: 30));
       return response.statusCode == 201;
     } catch (e) {
-      print("Erreur Order API: $e");
       return false;
     }
   }
 
-  // 8. Récupérer les commandes (Client ou Agent)
   Future<List<dynamic>> getOrders() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/orders/');
     final headers = await _getHeaders();
-
     try {
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-    } catch (e) {
-      print("Erreur Fetch Orders: $e");
-    }
+    } catch (e) {}
     return [];
   }
 
-  // 9. Mise à jour position temps réel (Suivi Admin)
   Future<void> updateLocation(double lat, double lng) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/agents/location');
     final headers = await _getHeaders();
-
     try {
       await http.post(
         url,
         headers: headers,
         body: jsonEncode({'lat': lat, 'lng': lng}),
-      );
-    } catch (e) {
-      print("Erreur envoi position: $e");
-    }
+      ).timeout(const Duration(seconds: 5)); // Shorter for location
+    } catch (e) {}
   }
 
-  // 10. Envoyer une évaluation
   Future<bool> postEvaluation(Map<String, dynamic> data) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/evaluations/');
     final headers = await _getHeaders();
-    final response = await http.post(url, headers: headers, body: jsonEncode(data));
-    return response.statusCode == 201;
+    try {
+      final response = await http.post(url, headers: headers, body: jsonEncode(data)).timeout(const Duration(seconds: 30));
+      return response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
   }
 }

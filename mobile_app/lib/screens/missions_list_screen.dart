@@ -88,7 +88,35 @@ class _MissionsListScreenState extends ConsumerState<MissionsListScreen> {
           // --- LISTE DES MISSIONS ---
           Expanded(
             child: agentState.missions.isEmpty
-                ? const Center(child: Text("Aucune mission assignée"))
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          agentState.error != null ? Icons.cloud_off_rounded : Icons.inventory_2_outlined,
+                          size: 80,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          agentState.error ?? "Aucune mission assignée",
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: () => ref.read(agentProvider.notifier).loadMissions(),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text("🔄 RÉESSAYER"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F172A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: agentState.missions.length,
@@ -101,9 +129,6 @@ class _MissionsListScreenState extends ConsumerState<MissionsListScreen> {
                           subtitle: Text("📦 Vitale: ${mission.quantityVitale} | Voltic: ${mission.quantityVoltic}"),
                           trailing: const Icon(Icons.arrow_forward_ios),
                           onTap: () {
-                            // Pass mission entity to Delivery Screen
-                            // Need to update DeliveryScreen constructor to accept Entity instead of generic Map
-                            // Or convert Entity to Map temporary
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => DeliveryScreen(missionEntity: mission)),

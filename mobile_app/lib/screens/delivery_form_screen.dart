@@ -6,14 +6,16 @@ import 'package:flutter/foundation.dart'; // Pour kIsWeb
 import 'dart:typed_data'; // Pour Uint8List
 import 'dart:convert'; // Pour jsonEncode
 
-import '../services/data_service.dart';
-import '../services/location_service.dart';
-import '../services/database_helper.dart';
-import '../services/sync_service.dart';
-import '../presentation/providers/data_service_provider.dart';
+import 'package:mobile_app/services/data_service.dart';
+import 'package:mobile_app/services/location_service.dart';
+import 'package:mobile_app/services/database_helper.dart';
+import 'package:mobile_app/services/sync_service.dart';
+import 'package:mobile_app/presentation/providers/data_service_provider.dart';
 
 class DeliveryFormScreen extends ConsumerStatefulWidget {
-  const DeliveryFormScreen({super.key});
+  final Map<String, dynamic>? initialMission; // Mission pré-remplie depuis l'admin
+  
+  const DeliveryFormScreen({super.key, this.initialMission});
 
   @override
   ConsumerState<DeliveryFormScreen> createState() => _DeliveryFormScreenState();
@@ -76,6 +78,12 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
           for (var p in _products) {
             _quantities[p['id']] = 0;
           }
+          
+          // 🔴 PRÉ-REMPLISSAGE SI MISSION ASSIGNÉE
+          if (widget.initialMission != null) {
+            _prefillFromMission(widget.initialMission!);
+          }
+          
           _isLoadingData = false;
         });
       }
@@ -85,6 +93,31 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur chargement: $e")));
       }
     }
+  }
+  
+  /// Pré-remplit le formulaire à partir d'une mission assignée
+  void _prefillFromMission(Map<String, dynamic> mission) {
+    // 1. Sélectionner automatiquement le client
+    final clientId = mission['client_id']?.toString();
+    if (clientId != null) {
+      _selectedClientId = clientId;
+    }
+    
+    // 2. Pré-remplir les quantités de produits
+    final items = mission['items'] as List? ?? [];
+    for (var item in items) {
+      final productId = item['product_id'] as int?;
+      final quantity = item['quantity'] as int?;
+      
+      if (productId != null && quantity != null) {
+        _quantities[productId] = quantity;
+      }
+    }
+    
+    // 3. Calculer le montant total
+    _calculateAmount();
+    
+    debugPrint("📦 Mission pré-remplie: Client #$clientId, ${items.length} produits");
   }
 
   @override
@@ -241,7 +274,10 @@ class _DeliveryFormScreenState extends ConsumerState<DeliveryFormScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text("NOUVELLE LIVRAISON", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          widget.initialMission != null ? "LIVRAISON MISSION #${widget.initialMission!['order_id'] ?? ''}" : "NOUVELLE LIVRAISON",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: Colors.white,
       ),

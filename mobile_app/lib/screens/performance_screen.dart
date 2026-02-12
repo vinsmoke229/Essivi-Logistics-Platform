@@ -14,6 +14,7 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
   List<dynamic> _deliveries = [];
   bool _isLoading = true;
   String _selectedPeriod = '7j'; // 7j, 30j, 90j
+  String? _errorMsg;
 
   @override
   void initState() {
@@ -22,29 +23,29 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
   }
 
   void _loadPerformanceData() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
+      _errorMsg = null;
     });
 
     try {
       final data = await ref.read(dataServiceProvider).getMyDeliveries();
       if (!mounted) return;
       
-      // Si aucune donnée, ajouter des données de test
-      if (data.isEmpty) {
-        _deliveries = _getMockDeliveries();
-      } else {
-        _deliveries = data;
-      }
-      
       setState(() {
+        _deliveries = data;
         _isLoading = false;
+        if (data.isEmpty) {
+          _errorMsg = "Aucune donnée de performance disponible.";
+        }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _deliveries = _getMockDeliveries();
         _isLoading = false;
+        _errorMsg = "Impossible de charger les données. Serveur injoignable.";
+        _deliveries = [];
       });
     }
   }
@@ -85,21 +86,51 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
 
     return _deliveries.where((delivery) {
       try {
-        final dateStr = delivery['created_at']?.toString() ?? '';
-        final parts = dateStr.split(' ');
-        if (parts.isNotEmpty) {
-          final dateParts = parts[0].split('-');
-          if (dateParts.length == 3) {
-            final deliveryDate = DateTime(
-              int.parse(dateParts[0]),
-              int.parse(dateParts[1]),
-              int.parse(dateParts[2]),
-            );
-            return deliveryDate.isAfter(startDate) || deliveryDate.isAtSameMomentAs(startDate);
+        DateTime? deliveryDate;
+        
+        // 1. Essayer avec le format ISO standard (Nouveau backend)
+        if (delivery['date_iso'] != null) {
+          deliveryDate = DateTime.tryParse(delivery['date_iso']);
+        }
+        
+        // 2. Fallback sur created_at (Ancien format 'DD/MM/YYYY HH:MM')
+        if (deliveryDate == null) {
+          final dateStr = delivery['created_at']?.toString() ?? '';
+          final parts = dateStr.split(' ');
+          if (parts.isNotEmpty) {
+            final datePart = parts[0];
+            if (datePart.contains('/')) {
+              // Format DD/MM/YYYY
+              final components = datePart.split('/');
+              if (components.length == 3) {
+                deliveryDate = DateTime(
+                  int.parse(components[2]), // Year
+                  int.parse(components[1]), // Month
+                  int.parse(components[0]), // Day
+                );
+              }
+            } else if (datePart.contains('-')) {
+              // Format YYYY-MM-DD
+              final components = datePart.split('-');
+              if (components.length == 3) {
+                deliveryDate = DateTime(
+                  int.parse(components[0]),
+                  int.parse(components[1]),
+                  int.parse(components[2]),
+                );
+              }
+            }
           }
         }
+
+        if (deliveryDate != null) {
+          // Normaliser pour ignorer l'heure dans la comparaison
+          final justDate = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
+          final justStart = DateTime(startDate.year, startDate.month, startDate.day);
+          return justDate.isAfter(justStart) || justDate.isAtSameMomentAs(justStart);
+        }
       } catch (e) {
-        // Ignorer les erreurs de parsing
+        debugPrint("Erreur parsing date: $e");
       }
       return false;
     }).cast<Map<String, dynamic>>().toList();
@@ -130,22 +161,58 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
     
     for (final delivery in filtered) {
       try {
-        final dateStr = delivery['created_at']?.toString() ?? '';
-        final date = dateStr.split(' ')[0];
-        final amount = (delivery['total_amount'] as num?)?.toDouble() ?? 0;
-        dailyData[date] = (dailyData[date] ?? 0) + amount;
+        DateTime? deliveryDate;
+        
+        // 1. Essayer avec le format ISO standard
+        if (delivery['date_iso'] != null) {
+          deliveryDate = DateTime.tryParse(delivery['date_iso']);
+        }
+        
+        // 2. Fallback sur parsing manuel (similaire à _getFilteredDeliveries)
+        if (deliveryDate == null) {
+          final dateStr = delivery['created_at']?.toString() ?? '';
+          final parts = dateStr.split(' ');
+          if (parts.isNotEmpty) {
+            final datePart = parts[0];
+            if (datePart.contains('/')) {
+              final components = datePart.split('/');
+              if (components.length == 3) {
+                deliveryDate = DateTime(
+                  int.parse(components[2]),
+                  int.parse(components[1]),
+                  int.parse(components[0]),
+                );
+              }
+            } else if (datePart.contains('-')) {
+              final components = datePart.split('-');
+              if (components.length == 3) {
+                deliveryDate = DateTime(
+                  int.parse(components[0]),
+                  int.parse(components[1]),
+                  int.parse(components[2]),
+                );
+              }
+            }
+          }
+        }
+
+        if (deliveryDate != null) {
+          // Clé de groupement YYYY-MM-DD pour un tri correct par date
+          final dateKey = "${deliveryDate.year.toString().padLeft(4, '0')}-${deliveryDate.month.toString().padLeft(2, '0')}-${deliveryDate.day.toString().padLeft(2, '0')}";
+          final amount = (delivery['total_amount'] as num?)?.toDouble() ?? 0;
+          dailyData[dateKey] = (dailyData[dateKey] ?? 0) + amount;
+        }
       } catch (e) {
         // Ignorer les erreurs
       }
     }
     
+    // Trier les dates chronologiquement (YYYY-MM-DD le permet naturellement)
     final sortedDates = dailyData.keys.toList()..sort();
-    final maxAmount = dailyData.values.isNotEmpty ? dailyData.values.reduce((a, b) => a > b ? a : b) : 1000;
     
     return sortedDates.map((date) {
       final amount = dailyData[date] ?? 0;
-      final parts = date.split('-');
-      final day = parts.length >= 3 ? parts[2] : '';
+      // date est YYYY-MM-DD
       
       return BarChartGroupData(
         x: sortedDates.indexOf(date),
@@ -215,37 +282,67 @@ class _PerformanceScreenState extends ConsumerState<PerformanceScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A)))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // PÉRIODE SELECTOR
-                  _buildPeriodSelector(),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // KPI CARDS
-                  _buildKPICards(stats),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // VENTES PAR JOUR GRAPH
-                  _buildDailySalesChart(),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // PRODUITS DISTRIBUTION
-                  Row(
+          : _errorMsg != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(child: _buildProductDistributionChart()),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildTopClients()),
+                      Icon(Icons.cloud_off_rounded, size: 80, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          _errorMsg!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: _loadPerformanceData,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text("🔄 RÉESSAYER"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // PÉRIODE SELECTOR
+                      _buildPeriodSelector(),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // KPI CARDS
+                      _buildKPICards(stats),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // VENTES PAR JOUR GRAPH
+                      _buildDailySalesChart(),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // PRODUITS DISTRIBUTION
+                      Row(
+                        children: [
+                          Expanded(child: _buildProductDistributionChart()),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildTopClients()),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
     );
   }
 

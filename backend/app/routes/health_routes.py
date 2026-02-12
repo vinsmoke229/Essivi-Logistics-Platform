@@ -45,7 +45,7 @@ class HealthCheck:
             start_time = datetime.utcnow()
             
             # Test connexion MongoDB
-            mongo_uri = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/essivi_logs')
+            mongo_uri = os.environ.get('MONGO_URI', 'mongodb://127.0.0.1:27017/essivi_logs')
             client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
             
             # Test simple

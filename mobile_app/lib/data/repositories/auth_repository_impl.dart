@@ -3,6 +3,7 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_data_source.dart';
 import '../datasources/auth_remote_data_source.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
@@ -16,10 +17,26 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<UserEntity?> login(String identifier, String password) async {
     try {
-      print("🔍 DEBUG - AuthRepositoryImpl.login appelé pour $identifier");
+      // 1. Appel API via RemoteDataSource
       final userModel = await remoteDataSource.login(identifier, password);
-      print("🔍 DEBUG - Connexion réussie, mise en cache de l'utilisateur");
+      
+      // 2. Sécurité : Vérifier si le retour est NULL
+      if (userModel == null) {
+        print("⚠️ REPOSITORY - Retour NULL du serveur");
+        return null;
+      }
+
+      print("🔍 DEBUG - Connexion réussie, mise en cache de l'utilisateur: ${userModel.name}");
       await localDataSource.cacheUser(userModel);
+
+      // 💾 PERSISTENCE STRICTE (Fix F5/Refresh issue)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', userModel.accessToken);
+      await prefs.setString('role', userModel.role);
+      await prefs.setString('name', userModel.name);
+      
+      print("💾 REPOSITORY SAVED: ${userModel.role} - ${userModel.name}");
+
       return userModel;
     } on DioException catch (e) {
       print("❌ DEBUG - Erreur Dio dans AuthRepositoryImpl: ${e.response?.statusCode}");
@@ -38,9 +55,46 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  Future<void> registerClient(String name, String phone, String address, {String? pin}) async {
-    print("🔍 DEBUG - AuthRepositoryImpl: registerClient appelé avec PIN: $pin");
-    await remoteDataSource.registerClient(name: name, phone: phone, address: address, pin: pin);
+  @override
+  Future<UserEntity?> registerClient(String name, String phone, String address, {String? responsibleName, String? pin}) async {
+    try {
+      print("🔍 DEBUG - AuthRepositoryImpl: registerClient appelé avec Gérant: $responsibleName, PIN: $pin");
+      final userModel = await remoteDataSource.registerClient(
+        name: name, 
+        phone: phone, 
+        address: address, 
+        responsibleName: responsibleName, 
+        pin: pin
+      );
+
+      if (userModel != null) {
+        print("🔍 DEBUG - Inscription + Auto-Login réussi: ${userModel.name}");
+        await localDataSource.cacheUser(userModel);
+
+        // PERSISTENCE POUR AUTO-LOGIN
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', userModel.accessToken);
+        await prefs.setString('role', userModel.role);
+        await prefs.setString('name', userModel.name);
+        if (userModel.identifier != null) {
+          await prefs.setString('identifier', userModel.identifier!);
+        }
+        
+        return userModel;
+      }
+      return null;
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 409) {
+        throw Exception('Ce numéro est déjà enregistré.');
+      } else if (statusCode == 400) {
+        throw Exception('Veuillez remplir tous les champs correctement.');
+      } else {
+        throw Exception('Erreur de connexion au serveur.');
+      }
+    } catch (e) {
+      throw Exception('Une erreur inattendue est survenue.');
+    }
   }
 
   @override

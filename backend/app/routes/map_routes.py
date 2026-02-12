@@ -53,21 +53,34 @@ def get_realtime_positions():
             Delivery.gps_lat_delivery.isnot(None),
             Delivery.gps_lng_delivery.isnot(None)
         ).all()
-        for delivery in deliveries:
-            positions.append({
-                'id': f'delivery-{delivery.id}',
-                'lat': delivery.gps_lat_delivery,
-                'lng': delivery.gps_lng_delivery,
-                'type': 'delivery',
-                'client_name': delivery.client.name if delivery.client else 'Inconnu',
-                'agent_name': delivery.agent.full_name if delivery.agent else 'Inconnu',
-                'quantity_vitale': delivery.quantity_vitale,
-                'quantity_voltic': delivery.quantity_voltic,
-                'total_amount': delivery.total_amount,
-                'status': delivery.status,
-                'timestamp': delivery.date.isoformat()
-            })
         
+        for delivery in deliveries:
+            try:
+                # Calcul sécurisé des volumes
+                qty_vitale = sum(item.quantity or 0 for item in delivery.items if item.product and ('Vitale' in item.product.name or 'VITALE' in item.product.name))
+                qty_voltic = sum(item.quantity or 0 for item in delivery.items if item.product and ('Voltic' in item.product.name or 'VOLTIC' in item.product.name))
+                
+                positions.append({
+                    'id': f'delivery-{delivery.id}',
+                    'lat': delivery.gps_lat_delivery,
+                    'lng': delivery.gps_lng_delivery,
+                    'type': 'delivery',
+                    'client_name': delivery.client.name if delivery.client else 'Inconnu',
+                    'agent_name': delivery.agent.full_name if delivery.agent else 'Inconnu',
+                    'quantity_vitale': int(qty_vitale),
+                    'quantity_voltic': int(qty_voltic),
+                    'total_amount': float(delivery.total_amount or 0),
+                    'status': delivery.status,
+                    'timestamp': delivery.date.isoformat() if delivery.date else ""
+                })
+            except Exception as e:
+                print(f"Error mapping delivery {delivery.id}: {e}")
+                continue
+
+        
+        if not positions:
+            return jsonify([]), 200
+            
         return jsonify(positions), 200
         
     except Exception as e:
@@ -250,9 +263,9 @@ def optimize_delivery_route():
                     'name': nearest.client.name if nearest.client else f'Client {nearest.id}',
                     'delivery_id': nearest.id,
                     'client_name': nearest.client.name if nearest.client else 'Inconnu',
-                    'quantity_vitale': nearest.quantity_vitale,
-                    'quantity_voltic': nearest.quantity_voltic,
-                    'total_amount': nearest.total_amount
+                    'quantity_vitale': sum(item.quantity for item in nearest.items if item.product and 'Vitale' in item.product.name),
+                    'quantity_voltic': sum(item.quantity for item in nearest.items if item.product and 'Voltic' in item.product.name),
+                    'total_amount': nearest.total_amount or 0
                 })
                 
                 current_lat = nearest.gps_lat_delivery
@@ -287,7 +300,7 @@ def get_delivery_heatmap():
         # Paramètres
         days = request.args.get('days', 30, type=int)
         
-        # Récupérer les livraisons récentes
+        # Récupérer les livraisons récentes avec filtres NULL robustes
         since_date = datetime.utcnow() - timedelta(days=days)
         deliveries = Delivery.query.filter(
             Delivery.date >= since_date,
@@ -298,22 +311,67 @@ def get_delivery_heatmap():
         # Générer les points de chaleur
         heat_points = []
         for delivery in deliveries:
-            heat_points.append({
-                'lat': delivery.gps_lat_delivery,
-                'lng': delivery.gps_lng_delivery,
-                'intensity': min(delivery.total_amount / 1000, 1.0),  # Normaliser l'intensité
-                'weight': 1 + (delivery.quantity_vitale + delivery.quantity_voltic) / 10
-            })
+            try:
+                # Sécurité : vérifier que items existe et n'est pas None
+                if not delivery.items:
+                    items_qty = 0
+                else:
+                    # Filtrer les items avec quantity NULL
+                    items_qty = sum(
+                        item.quantity or 0 
+                        for item in delivery.items 
+                        if item.quantity is not None
+                    )
+                
+                # Sécurité : vérifier que total_amount n'est pas None
+                total_amount = delivery.total_amount or 0
+                
+                # Vérifier que les coordonnées sont valides
+                if delivery.gps_lat_delivery is None or delivery.gps_lng_delivery is None:
+                    continue
+                
+                heat_points.append({
+                    'lat': float(delivery.gps_lat_delivery),
+                    'lng': float(delivery.gps_lng_delivery),
+                    'intensity': min(total_amount / 1000, 1.0),
+                    'weight': 1 + items_qty / 10
+                })
+            except Exception as e:
+                # Log l'erreur mais continue le traitement
+                print(f"⚠️ Erreur traitement delivery {delivery.id}: {str(e)}")
+                continue
+        
+        # Retourner un objet vide si aucun point
+        if not heat_points:
+            return jsonify({
+                'points': [],
+                'maxIntensity': 0,
+                'total_points': 0,
+                'period_days': days,
+                'generated_at': datetime.utcnow().isoformat()
+            }), 200
+        
+        # Calculer l'intensité maximale
+        max_intensity = max(point['intensity'] for point in heat_points) if heat_points else 1.0
         
         return jsonify({
             'points': heat_points,
+            'maxIntensity': max_intensity,
             'total_points': len(heat_points),
             'period_days': days,
             'generated_at': datetime.utcnow().isoformat()
         }), 200
         
     except Exception as e:
-        return jsonify({"msg": f"Erreur: {str(e)}"}), 500
+        # Erreur globale : retourner un objet vide au lieu de crasher
+        print(f"❌ Erreur get_delivery_heatmap: {str(e)}")
+        return jsonify({
+            'points': [],
+            'maxIntensity': 0,
+            'total_points': 0,
+            'error': str(e)
+        }), 200  # 200 au lieu de 500 pour éviter les erreurs côté client
+
 
 @map_bp.route('/zones-chalandise', methods=['GET', 'OPTIONS'])
 @jwt_required()

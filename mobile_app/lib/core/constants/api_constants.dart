@@ -2,19 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'dart:io';
 
 class ApiConstants {
-  // CONFIGURATION IP PC (Pour les tests sur appareil physique Android)
-  static const String pcIp = '192.168.1.100'; // Remplacer par l'IP de votre PC
+  // CONFIGURATION IP PC (IP Locale Fixe)
+  static const String pcIp = '192.168.162.162'; 
 
   static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:5000/api';
-    }
-    if (Platform.isAndroid) {
-      // 10.0.2.2 est l'adresse pour accéder au localhost du PC depuis l'émulateur Android
-      // Si appareil physique, utilisez pcIp
-      return 'http://10.0.2.2:5000/api'; 
-    }
-    return 'http://127.0.0.1:5000/api';
+    if (kIsWeb) return 'http://localhost:5000/api';
+    return 'http://${pcIp}:5000/api';
   }
   
   static const String loginEndpoint = '/auth/login';

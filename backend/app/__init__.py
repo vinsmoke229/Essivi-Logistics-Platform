@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -18,7 +20,7 @@ socketio = None
 mongo_client = None
 
 def create_app():
-    app = Flask(__name__)
+    flask_app = Flask(__name__)
     
     # 2. Récupération de l'URL Postgres depuis le .env
     # On met une valeur par défaut pour SQLite uniquement si Postgres n'est pas trouvé
@@ -29,38 +31,46 @@ def create_app():
     print(f"🔌 BACKEND CONNECTÉ À : {db_url}")
     print("!"*60 + "\n")
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secure-key')
-    app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/essivi_logs')
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+    flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    flask_app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secure-key')
+    flask_app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb://127.0.0.1:27017/essivi_logs')
 
-    db.init_app(app)
-    migrate.init_app(app, db)
-    jwt.init_app(app)
+    db.init_app(flask_app)
+    migrate.init_app(flask_app, db)
+    jwt.init_app(flask_app)
     
-    app.url_map.strict_slashes = False
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True, expose_headers=["Authorization"])
+    flask_app.url_map.strict_slashes = False
+    CORS(flask_app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True, expose_headers=["Authorization"])
 
-    # Initialiser Socket.IO
+    # Initialiser Socket.IO (Mode Eventlet OBLIGATOIRE pour Windows + Threads)
     global socketio
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+    socketio = SocketIO(flask_app, cors_allowed_origins="*", async_mode='eventlet')
+
+    # Importer les événements Socket.IO (APRÈS l'initialisation de socketio)
+    try:
+        import app.socketio_events
+        print("✅ Événements Socket.IO importés")
+    except Exception as e:
+        print(f"⚠️ Erreur import socketio_events: {e}")
 
     # Connexion MongoDB
     global mongo_client
     try:
-        mongo_client = MongoClient(app.config['MONGO_URI'])
-        print(" MongoDB OK")
+        mongo_client = MongoClient(flask_app.config['MONGO_URI'])
+        print("✅ MongoDB OK")
     except Exception as e:
-        print(f" Erreur MongoDB: {e}")
+        print(f"⚠️ Erreur MongoDB: {e}")
 
-    @app.route('/favicon.ico')
+
+    @flask_app.route('/favicon.ico')
     def favicon():
         return '', 204
 
-    @app.route('/uploads/<path:filename>')
+    @flask_app.route('/uploads/<path:filename>')
     def serve_uploads(filename):
         from flask import send_from_directory
-        uploads_path = os.path.abspath(os.path.join(app.root_path, '..', 'uploads'))
+        uploads_path = os.path.abspath(os.path.join(flask_app.root_path, '..', 'uploads'))
         return send_from_directory(uploads_path, filename)
 
     # --- ENREGISTREMENT DES ROUTES ---
@@ -85,7 +95,7 @@ def create_app():
     # Ajout des routes manquantes
     try:
         from app.routes.map_routes import map_bp
-        app.register_blueprint(map_bp)
+        flask_app.register_blueprint(map_bp)
         print(" Routes map importées")
     except ImportError:
         print(" Routes map non trouvées, création fallback...")
@@ -181,33 +191,33 @@ def create_app():
         def export_map_data():
             return jsonify({'message': 'Export functionality'})
         
-        app.register_blueprint(map_bp_fallback)
+        flask_app.register_blueprint(map_bp_fallback)
         print(" Routes map fallback créées")
 
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(agent_bp)
-    app.register_blueprint(client_bp)
-    app.register_blueprint(client_extended_bp)
-    app.register_blueprint(delivery_bp)
-    app.register_blueprint(tour_bp)
-    app.register_blueprint(order_bp)
-    app.register_blueprint(audit_bp)
-    app.register_blueprint(stats_bp)
-    app.register_blueprint(product_bp)
-    app.register_blueprint(user_bp)
-    app.register_blueprint(stock_bp)
-    app.register_blueprint(settings_bp)
-    app.register_blueprint(socketio_bp)
-    app.register_blueprint(reports_bp)
-    app.register_blueprint(permissions_bp)
-    app.register_blueprint(health_bp)
+    flask_app.register_blueprint(auth_bp)
+    flask_app.register_blueprint(agent_bp)
+    flask_app.register_blueprint(client_bp)
+    flask_app.register_blueprint(client_extended_bp)
+    flask_app.register_blueprint(delivery_bp)
+    flask_app.register_blueprint(tour_bp)
+    flask_app.register_blueprint(order_bp)
+    flask_app.register_blueprint(audit_bp)
+    flask_app.register_blueprint(stats_bp)
+    flask_app.register_blueprint(product_bp)
+    flask_app.register_blueprint(user_bp)
+    flask_app.register_blueprint(stock_bp)
+    flask_app.register_blueprint(settings_bp)
+    flask_app.register_blueprint(socketio_bp)
+    flask_app.register_blueprint(reports_bp)
+    flask_app.register_blueprint(permissions_bp)
+    flask_app.register_blueprint(health_bp)
     from app.routes.evaluation_routes import eval_bp
-    app.register_blueprint(eval_bp)
+    flask_app.register_blueprint(eval_bp)
 
     # Enregistrer les routes notifications
     try:
         from app.routes.notifications_routes import notifications_bp
-        app.register_blueprint(notifications_bp)
+        flask_app.register_blueprint(notifications_bp)
         print(" Routes notifications importées")
     except ImportError:
         print(" Routes notifications non trouvées")
@@ -215,8 +225,8 @@ def create_app():
     # Initialisation du Scheduler de Reporting
     try:
         from app.services.reporting_bot import init_scheduler
-        init_scheduler(app)
+        init_scheduler(flask_app)
     except Exception as e:
         print(f" Erreur démarrage scheduler: {e}")
 
-    return app, socketio
+    return flask_app, socketio

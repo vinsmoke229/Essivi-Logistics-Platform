@@ -15,9 +15,12 @@ def send_daily_digest(app):
         
         # 1. Calcul des statistiques du jour
         deliveries = Delivery.query.filter(Delivery.date >= today).all()
-        total_revenue = sum(d.total_amount for d in deliveries)
-        total_vitale = sum(d.quantity_vitale for d in deliveries)
-        total_voltic = sum(d.quantity_voltic for d in deliveries)
+        total_revenue = sum(d.total_amount or 0 for d in deliveries)
+        
+        # Somme dynamique des articles
+        total_items = 0
+        for d in deliveries:
+            total_items += sum(item.quantity for item in d.items)
         
         # 2. Top Livreur
         top_agent_data = db.session.query(
@@ -51,8 +54,7 @@ def send_daily_digest(app):
                 <div style="margin: 20px 0;">
                     <p><strong>💰 Chiffre d'Affaires :</strong> <span style="font-size: 1.2em; color: #059669;">{total_revenue:,.0f} FCFA</span></p>
                     <p><strong>📦 Total Livraisons :</strong> {len(deliveries)}</p>
-                    <p><strong>💧 Vitale (Packs) :</strong> {total_vitale}</p>
-                    <p><strong>💧 Voltic (Packs) :</strong> {total_voltic}</p>
+                    <p><strong>📦 Total Articles :</strong> {total_items}</p>
                     <p><strong>🏆 Livreur du jour :</strong> {top_agent_name}</p>
                 </div>
                 <div style="background: #f8fafc; padding: 15px; border-radius: 5px; font-size: 0.9em; color: #64748b;">

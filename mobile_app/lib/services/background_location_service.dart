@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../core/constants/api_constants.dart';
 
+@pragma('vm:entry-point')
 class BackgroundLocationService {
   static Future<void> initializeService() async {
     if (kIsWeb) return;
@@ -42,6 +43,7 @@ class BackgroundLocationService {
   static void onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
 
+    // ⚠️ CRITICAL: Must show notification IMMEDIATELY for Android 14+
     if (service is AndroidServiceInstance) {
       service.on('setAsForeground').listen((event) {
         service.setAsForegroundService();
@@ -50,6 +52,12 @@ class BackgroundLocationService {
       service.on('setAsBackground').listen((event) {
         service.setAsBackgroundService();
       });
+      
+      // ✅ Force notification display right away
+      await service.setForegroundNotificationInfo(
+        title: "Suivi GPS Actif",
+        content: "Service de localisation en cours...",
+      );
     }
 
     service.on('stopService').listen((event) {
@@ -58,40 +66,57 @@ class BackgroundLocationService {
 
     // Timer périodique (60 secondes)
     Timer.periodic(const Duration(seconds: 60), (timer) async {
-      if (service is AndroidServiceInstance) {
-        if (await service.isForegroundService()) {
-          service.setForegroundNotificationInfo(
-            title: "Suivi GPS Essivi",
-            content: "Position mise à jour le ${DateTime.now().hour}:${DateTime.now().minute}",
-          );
-        }
-      }
-
       try {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
+        // Double check permission before calling getCurrentPosition to avoid immediate crash on some Android versions
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          print("Background location skipped: Permissions missing.");
+          return;
+        }
+
+        Position? position;
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 15),
+          );
+        } catch (e) {
+          print("⚠️ Erreur récupération GPS (non bloquant): $e");
+          return; // On sort sans crasher
+        }
+
+        if (position == null) return;
+
+        // 🛡️ SÉCURITÉ : Ignorer les coordonnées à 0.0 (souvent erreur init GPS)
+        if (position.latitude == 0.0 && position.longitude == 0.0) {
+          print("GPS FAIL: Coordonnées nulles ou à 0. Envoi annulé.");
+          return;
+        }
 
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('auth_token');
 
         if (token != null) {
           final url = Uri.parse('${ApiConstants.baseUrl}/agents/location');
-          await http.post(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              'lat': position.latitude,
-              'lng': position.longitude,
-            }),
-          );
-          print("Background Location Sent: ${position.latitude}, ${position.longitude}");
+          try {
+            await http.post(
+              url,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode({
+                'lat': position.latitude,
+                'lng': position.longitude,
+              }),
+            ).timeout(const Duration(seconds: 10));
+            print("Background Location Sent: ${position.latitude}, ${position.longitude}");
+          } catch (e) {
+             print("Network error sending location: $e");
+          }
         }
       } catch (e) {
-        print("Error in background tracking: $e");
+        print("Error in background tracking loop: $e");
       }
     });
   }

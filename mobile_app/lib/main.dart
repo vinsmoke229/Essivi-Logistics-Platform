@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart'; // ⬅️ INDISPENSABLE
-import 'screens/login_screen.dart';
-import './utils/session_timeout_wrapper.dart';
+import 'package:mobile_app/screens/login_screen.dart';
+import 'package:mobile_app/utils/session_timeout_wrapper.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -9,46 +9,63 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io' show Platform;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'core/network/api_client.dart';
-import 'data/datasources/auth_local_data_source.dart';
-import 'data/datasources/auth_remote_data_source.dart';
-import 'data/repositories/auth_repository_impl.dart';
-import 'presentation/providers/auth_provider.dart';
-import 'presentation/providers/core_providers.dart';
-import 'services/background_location_service.dart';
+import 'package:mobile_app/core/network/api_client.dart';
+import 'package:mobile_app/data/datasources/auth_local_data_source.dart';
+import 'package:mobile_app/data/datasources/auth_remote_data_source.dart';
+import 'package:mobile_app/data/repositories/auth_repository_impl.dart';
+import 'package:mobile_app/presentation/providers/auth_provider.dart';
+import 'package:mobile_app/presentation/providers/core_providers.dart';
+import 'package:mobile_app/services/background_location_service.dart';
+
+import 'package:mobile_app/screens/client_dashboard_screen.dart';
+import 'package:mobile_app/screens/dashboard_screen.dart';
 
 void main() async {
-  // 1. On s'assure que Flutter est prêt
+  // 1. Assurer l'initialisation de Flutter
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialisation du service de fond
+  // 2. Initialisation du service de fond (Mobile uniquement)
   if (!kIsWeb) {
     await BackgroundLocationService.initializeService();
   }
 
-  // 2. Initialisation de SQLite pour desktop (pas pour web)
+  // 3. Setup SQLite FFI (Desktop/Test)
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     try {
-      // Initialize FFI
       sqfliteFfiInit();
-      // Set databaseFactory to FFI
       databaseFactory = databaseFactoryFfi;
     } catch (e) {
       print('SQLite FFI initialization failed: $e');
-      // Continuer sans SQLite pour le web ou en cas d'erreur
     }
   }
 
-  // 3. On initialise le support des dates en Français
+  // 4. Initialisations Vitales
   await initializeDateFormatting('fr_FR', null);
-
-  // 4. Init Hive
   await Hive.initFlutter();
 
-  // 5. Init SharedPrefs
+  // 5. Lecture des SharedPreferences pour le Routage au Boot
   final sharedPreferences = await SharedPreferences.getInstance();
+  final token = sharedPreferences.getString('auth_token');
+  final role = sharedPreferences.getString('role');
+  final name = sharedPreferences.getString('name');
+  
+  print("🚗 BOOTING - Role: $role, Name: $name");
 
-  // 6. Setup Dependencies
+  // 🚀 DÉTERMINATION DE L'ÉCRAN INITIAL
+  Widget initialScreen;
+  if (token != null && token.isNotEmpty) {
+    if (role == 'client') {
+      initialScreen = const ClientDashboardScreen();
+    } else if (role == 'agent') {
+      initialScreen = const DashboardScreen();
+    } else {
+      initialScreen = const LoginScreen();
+    }
+  } else {
+    initialScreen = const LoginScreen();
+  }
+
+  // 6. Setup Dependencies (API & Repositories)
   final apiClient = ApiClient();
   final authLocalDataSource = AuthLocalDataSourceImpl(sharedPreferences: sharedPreferences);
   final authRemoteDataSource = AuthRemoteDataSourceImpl(apiClient: apiClient);
@@ -57,7 +74,7 @@ void main() async {
     localDataSource: authLocalDataSource,
   );
 
-  // 7. On lance l'application avec Riverpod
+  // 7. Lancement de l'App (runApp)
   runApp(
     ProviderScope(
       overrides: [
@@ -65,13 +82,14 @@ void main() async {
         apiClientProvider.overrideWithValue(apiClient),
         authRepositoryProvider.overrideWithValue(authRepository),
       ],
-      child: const EssiviApp(),
+      child: EssiviApp(initialScreen: initialScreen),
     ),
   );
 }
 
 class EssiviApp extends StatelessWidget {
-  const EssiviApp({super.key});
+  final Widget initialScreen;
+  const EssiviApp({super.key, required this.initialScreen});
 
   @override
   Widget build(BuildContext context) {
@@ -83,8 +101,8 @@ class EssiviApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // On entoure l'app avec le timeout de session
-      home: const SessionTimeoutWrapper(
-        child: LoginScreen(),
+      home: SessionTimeoutWrapper(
+        child: initialScreen,
       ),
     );
   }

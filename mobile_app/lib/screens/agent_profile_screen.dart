@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import '../services/profile_service.dart';
 import '../widgets/profile_photo_widget.dart';
@@ -21,18 +22,8 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
   File? _profileImage;
   bool _isLoading = false;
 
-  // Informations agent (mock pour l'instant)
-  Map<String, dynamic> _agentInfo = {
-    'name': 'Agent Secours',
-    'identifier': 'ESS-2024-001',
-    'phone': '+228 90 00 00 00',
-    'email': 'agent@essivi.tg',
-    'join_date': '2024-01-15',
-    'status': 'active',
-    'agent_id': 'AG-ESSIVI-0001',
-    'department': 'Distribution',
-    'region': 'Lomé',
-  };
+  // Informations agent initialisées vides (seront chargées depuis l'API)
+  Map<String, dynamic> _agentInfo = {};
 
   @override
   void initState() {
@@ -41,21 +32,22 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
   }
 
   Future<void> _loadAgentProfile() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Charger les informations du profil depuis le backend
       final profileInfo = await _profileService.getProfileInfo();
+      if (!mounted) return;
       if (profileInfo != null) {
         setState(() {
           _agentInfo = profileInfo;
         });
       }
 
-      // Charger la photo de profil locale si elle existe
       final localPhotoPath = await _profileService.getLocalProfilePhotoPath();
+      if (!mounted) return;
       if (localPhotoPath != null && File(localPhotoPath).existsSync()) {
         setState(() {
           _profileImage = File(localPhotoPath);
@@ -63,9 +55,9 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
       }
     } catch (e) {
       print('Erreur chargement profil: $e');
-      // En cas d'erreur, on garde les données mock
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
@@ -270,17 +262,18 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
   }
 
   Widget _buildVehicleSection() {
-    // Mock data - dans une vraie app, ça viendrait du backend
+    final tricyclePlate = _agentInfo['tricycle_plate'] ?? "Non assigné";
+    
     final vehicle = VehicleModel(
       id: '1',
-      plateNumber: 'TG-1234-AB',
-      brand: 'Bajaj',
-      model: 'RE Max',
-      color: 'Bleu',
-      year: 2023,
-      status: 'active',
+      plateNumber: tricyclePlate,
+      brand: 'Tricycle ESSIVI',
+      model: 'Transport Eau',
+      color: 'Gris Métallique',
+      year: 2024,
+      status: tricyclePlate != "Non assigné" ? 'active' : 'inactive',
       assignedAt: DateTime.now().subtract(const Duration(days: 30)),
-      assignedBy: 'Admin',
+      assignedBy: 'Logistique',
     );
 
     return Container(
@@ -668,7 +661,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          _agentInfo['name'] ?? 'Agent',
+                          _agentInfo['name']?.toString() ?? 'Agent...',
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -677,7 +670,7 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          _agentInfo['agent_id'] ?? 'ID Agent',
+                          _agentInfo['matricule']?.toString() ?? _agentInfo['agent_id']?.toString() ?? 'ID Agent...',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey.shade600,
@@ -690,18 +683,18 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
 
                   const SizedBox(height: 24),
 
-                  // SECTION INFORMATIONS PERSONNELLES
+                   // SECTION INFORMATIONS PERSONNELLES
                   _buildInfoSection(
                     'INFORMATIONS PERSONNELLES',
                     [
-                      _buildInfoRow(Icons.person, 'Nom complet', _agentInfo['name']),
-                      _buildInfoRow(Icons.badge, 'ID Agent', _agentInfo['agent_id']),
-                      _buildInfoRow(Icons.credit_card, 'Matricule', _agentInfo['identifier']),
-                      _buildInfoRow(Icons.phone, 'Téléphone', _agentInfo['phone']),
-                      _buildInfoRow(Icons.email, 'Email', _agentInfo['email']),
-                      _buildInfoRow(Icons.business, 'Département', _agentInfo['department']),
-                      _buildInfoRow(Icons.location_on, 'Région', _agentInfo['region']),
-                      _buildInfoRow(Icons.calendar_today, 'Date d\'embauche', _agentInfo['join_date']),
+                      _buildInfoRow(Icons.person, 'Nom complet', _agentInfo['name']?.toString() ?? 'Inconnu'),
+                      _buildInfoRow(Icons.badge, 'ID Agent', _agentInfo['agent_id']?.toString() ?? 'Non défini'),
+                      _buildInfoRow(Icons.credit_card, 'Matricule', _agentInfo['matricule']?.toString() ?? _agentInfo['identifier']?.toString() ?? 'N/A'),
+                      _buildInfoRow(Icons.phone, 'Téléphone', _agentInfo['phone']?.toString() ?? 'Non renseigné'),
+                      _buildInfoRow(Icons.email, 'Email', _agentInfo['email']?.toString() ?? 'Non renseigné'),
+                      _buildInfoRow(Icons.business, 'Département', _agentInfo['department']?.toString() ?? 'Opérations'),
+                      _buildInfoRow(Icons.location_on, 'Région', _agentInfo['region']?.toString() ?? 'Maritime'),
+                      _buildInfoRow(Icons.calendar_today, 'Date d\'embauche', _agentInfo['join_date']?.toString() ?? 'Janvier 2024'),
                     ],
                   ),
 
@@ -716,9 +709,14 @@ class _AgentProfileScreenState extends ConsumerState<AgentProfileScreen> {
                   _buildInfoSection(
                     'PERFORMANCE',
                     [
-                      _buildInfoRow(Icons.local_shipping, 'Total livraisons', '156'),
-                      _buildInfoRow(Icons.attach_money, 'Montant total', '2,340,000 FCFA'),
-                      _buildInfoRow(Icons.star, 'Note moyenne', '4.8 ⭐'),
+                      _buildInfoRow(Icons.local_shipping, 'Total livraisons', 
+                          (_agentInfo['stats']?['total_deliveries'] ?? 0).toString()),
+                      _buildInfoRow(Icons.attach_money, 'Montant total', 
+                          _agentInfo['stats'] != null && _agentInfo['stats']['total_revenue'] != null 
+                            ? "${NumberFormat("#,###", "fr_FR").format(_agentInfo['stats']['total_revenue'])} FCFA" 
+                            : '0 FCFA'),
+                      _buildInfoRow(Icons.star, 'Note moyenne', 
+                          "${_agentInfo['stats']?['average_rating']?.toString() ?? '4.8'} ⭐"),
                     ],
                   ),
 

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../presentation/providers/client_provider.dart';
-import '../presentation/providers/auth_provider.dart';
-import 'login_screen.dart';
-import 'new_order_screen.dart';
-import 'client_invoices_screen.dart';
-import 'client_history_screen.dart';
-import 'client_profile_screen.dart';
-import 'delivery_tracking_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile_app/presentation/providers/client_provider.dart';
+import 'package:mobile_app/presentation/providers/auth_provider.dart';
+import 'package:mobile_app/screens/login_screen.dart';
+import 'package:mobile_app/screens/new_order_screen.dart';
+import 'package:mobile_app/screens/client_invoices_screen.dart';
+import 'package:mobile_app/screens/client_history_screen.dart';
+import 'package:mobile_app/screens/client_profile_screen.dart';
+import 'package:mobile_app/screens/delivery_tracking_screen.dart';
 
 class ClientDashboardScreen extends ConsumerStatefulWidget {
   const ClientDashboardScreen({super.key});
@@ -18,14 +19,32 @@ class ClientDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _ClientDashboardScreenState extends ConsumerState<ClientDashboardScreen> {
+  String _userName = "";
+  String _clientName = "Client";
 
   @override
   void initState() {
     super.initState();
+    _loadIdentity();
     Future.microtask(() => ref.read(clientProvider.notifier).refresh());
   }
 
+  void _loadIdentity() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _userName = prefs.getString('name') ?? "Client ESSIVI";
+      });
+    }
+  }
+
+
   void _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('role');
+    await prefs.remove('name');
+    
     await ref.read(authProvider.notifier).logout();
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -54,9 +73,9 @@ class _ClientDashboardScreenState extends ConsumerState<ClientDashboardScreen> {
               backgroundColor: const Color(0xFF0F172A),
               flexibleSpace: FlexibleSpaceBar(
                 titlePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                title: const Text(
-                  "Espace Client",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                title: Text(
+                  "Bonjour, $_userName",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
                 ),
                 background: Container(
                   decoration: const BoxDecoration(

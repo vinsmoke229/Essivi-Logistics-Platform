@@ -216,3 +216,13 @@ class SystemSettings(db.Model):
     category = db.Column(db.String(50), default='general')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class AgentLocation(db.Model):
+    __tablename__ = 'agent_locations'
+    id = db.Column(db.Integer, primary_key=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=False)
+    lat = db.Column(db.Float, nullable=False)
+    lng = db.Column(db.Float, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    agent = db.relationship('Agent', backref='location_history')

@@ -176,7 +176,52 @@ def get_agent(id):
         print(traceback.format_exc())
         return jsonify({"msg": "Erreur interne lors du chargement de l'agent", "error": str(e)}), 500
 
+# --- PROFIL DE L'AGENT CONNECTÉ ---
+@agent_bp.route('/profile', methods=['GET'])
+@jwt_required()
+def get_agent_profile():
+    try:
+        agent_id = int(get_jwt_identity())
+        agent = Agent.query.get_or_404(agent_id)
+        
+        # Calcul des stats de performance
+        deliveries = agent.deliveries if agent.deliveries else []
+        total_deliveries = len(deliveries)
+        total_revenue = sum(getattr(d, 'total_amount', 0) for d in deliveries)
+        
+        # On renvoie un objet plat facile à consommer pour le mobile
+        return jsonify({
+            "id": agent.id,
+            "matricule": agent.matricule,
+            "full_name": agent.full_name,
+            "name": agent.full_name, # Alias pour compatibilité UI
+            "phone": agent.phone,
+            "email": agent.email or "N/A",
+            "address": agent.address or "Indéfinie",
+            "identifier": agent.matricule,
+            "photo_url": format_url(agent.photo_url),
+            "tricycle_plate": agent.tricycle_plate or "Non assigné",
+            "join_date": agent.hire_date.isoformat() if agent.hire_date else "N/A",
+            "department": "Distribution",
+            "region": "Lomé",
+            "stats": {
+                "total_deliveries": total_deliveries,
+                "total_revenue": total_revenue,
+                "average_rating": getattr(agent, 'average_rating', 4.8),
+                "punctuality_rate": getattr(agent, 'punctuality_rate', 100.0)
+            },
+            # Champs pour dynamiser AgentProfileScreen directement
+            "performance": [
+                {"label": "Total livraisons", "value": str(total_deliveries)},
+                {"label": "Montant total", "value": f"{total_revenue:,.0f} FCFA"},
+                {"label": "Note moyenne", "value": f"{getattr(agent, 'average_rating', 4.8)} ⭐"}
+            ]
+        }), 200
+    except Exception as e:
+        return jsonify({"msg": "Erreur profil", "error": str(e)}), 500
+
 # --- MODIFIER UN AGENT ---
+
 @agent_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_agent(id):
@@ -278,6 +323,9 @@ def delete_agent(id):
 @agent_bp.route('/location', methods=['POST'])
 @jwt_required()
 def update_location():
+    from app.models.sql_models import AgentLocation, Order
+    from app import socketio
+    
     claims = get_jwt()
     if claims.get('type') != 'agent':
         return jsonify({"msg": "Réservé aux agents"}), 403
@@ -295,13 +343,59 @@ def update_location():
     if not agent:
         return jsonify({"msg": "Agent introuvable"}), 404
 
+    # 1. Update Profil (Dernière position connue)
     agent.last_lat = lat
     agent.last_lng = lng
     agent.last_seen = datetime.utcnow()
 
+    # 2. 📝 TRAÇABILITÉ (BREADCRUMBS) : Enregistrement de l'historique
+    new_loc = AgentLocation(agent_id=agent_id, lat=lat, lng=lng)
+    db.session.add(new_loc)
+
     try:
         db.session.commit()
-        return jsonify({"msg": "Position mise à jour"}), 200
+        
+        # 3. 🔴 TEMPS RÉEL : Émission Socket.IO vers les clients concernés
+        # Récupérer les commandes actives de cet agent
+        active_orders = Order.query.filter(
+            Order.agent_id == agent_id,
+            Order.status.in_(['en_cours', 'en_livraison', 'assigned'])
+        ).all()
+        
+        # Préparer les données de position
+        position_data = {
+            'agent_id': agent_id,
+            'lat': lat,
+            'lng': lng,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        # Émettre vers chaque room de commande
+        if socketio:
+            for order in active_orders:
+                position_data['order_id'] = str(order.id)
+                socketio.emit(
+                    'agent_position_update',
+                    position_data,
+                    room=f'order_{order.id}'
+                )
+                print(f"📡 Position émise vers room order_{order.id}: {lat}, {lng}")
+            
+            # Émettre aussi vers la room globale admin
+            socketio.emit(
+                'agent_position_update',
+                {
+                    'agent_id': agent_id,
+                    'agent_name': agent.full_name,
+                    'lat': lat,
+                    'lng': lng,
+                    'timestamp': datetime.utcnow().isoformat()
+                },
+                room='admin_map'
+            )
+        
+        return jsonify({"msg": "Position mise à jour et tracée"}), 200
     except Exception as e:
         db.session.rollback()
+        print(f"❌ Erreur update_location: {str(e)}")
         return jsonify({"msg": "Erreur lors de la mise à jour"}), 500

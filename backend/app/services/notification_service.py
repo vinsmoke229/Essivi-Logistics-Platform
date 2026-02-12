@@ -141,8 +141,9 @@ class NotificationService:
                     <h2 style="color: #2563eb;">ESSIVI Delivery</h2>
                     <p>{message_body}</p>
                     <hr>
-                    <p><strong>Détails:</strong> Vitale: {delivery_info.get('quantity_vitale', 0)} | Voltic: {delivery_info.get('quantity_voltic', 0)}</p>
+                    <p><strong>Articles:</strong> {delivery_info.get('items_summary', 'Voir détails app')}</p>
                     <p><strong>Livreur:</strong> {delivery_info.get('agent_name', 'Assigné')}</p>
+
                 </div>
             </body>
             </html>
